@@ -29,6 +29,11 @@
 #define TRANSITION_BOTTOM_TO_TOP 4
 #define TRANSITION_FADE          5
 
+// Define animation modes
+#define ANIMATION_STATIC   0  // Static icons (single frame)
+#define ANIMATION_EMBEDDED 1  // Animated icons using embedded frames
+#define ANIMATION_ONLINE   2  // Animated icons fetched online
+
 // Weather condition codes (simplified for demonstration)
 #define WEATHER_CLEAR   0
 #define WEATHER_CLOUDY  1
@@ -46,6 +51,9 @@ public:
     
     // Set the operation mode
     void setMode(uint8_t mode);
+    
+    // Set animation mode (static, embedded animated, or online animated)
+    void setAnimationMode(uint8_t animationMode);
     
     // Update weather data and manage animations
     void update();
@@ -77,6 +85,7 @@ private:
     uint8_t _displayType;
     uint8_t _i2cAddr;
     uint8_t _mode;
+    uint8_t _animationMode;
     
     // Wi-Fi management flag
     bool _manageWiFi;
@@ -97,6 +106,10 @@ private:
     unsigned long _transitionDuration;
     bool _isTransitioning;
     
+    // Animation timing
+    unsigned long _lastFrameTime;
+    uint8_t _currentFrame;
+    
     // Animation data structure
     struct Animation {
         const uint8_t** frames;
@@ -113,6 +126,10 @@ private:
         uint8_t* imageData;
         size_t dataSize;
         bool isLoaded;
+        bool isAnimated;      // Is this an animated GIF?
+        uint8_t frameCount;   // Number of frames if animated
+        uint16_t frameDelay;  // Delay between frames if animated
+        uint8_t* frameData[10]; // Up to 10 frames for GIFs (pointers to frame data)
     };
     OnlineAnimation _onlineAnimationCache[5]; // Cache for online animations
     
@@ -127,6 +144,12 @@ private:
     
     // Set animation based on Home Assistant weather condition
     bool setAnimationFromHACondition(const char* condition, bool isDaytime);
+    
+    // Load animated GIF for TFT display
+    bool loadAnimatedGif(uint8_t weatherCondition, const char* url);
+    
+    // Parse GIF data to extract frames
+    bool parseGifFrames(uint8_t weatherCondition);
 };
 
 #endif // WEATHER_ANIMATIONS_H 

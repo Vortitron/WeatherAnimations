@@ -208,6 +208,92 @@ brew install inkscape imagemagick
 pip3 install pillow
 ```
 
+## Using Animated Weather Icons
+
+The library now supports fully animated weather icons in addition to static images. You can now display weather conditions with beautiful animations that bring your weather display to life.
+
+### Animation Modes
+
+The library supports three animation modes:
+
+1. **Static Mode (ANIMATION_STATIC)**: Displays only the first frame of each animation (default mode).
+2. **Embedded Animation (ANIMATION_EMBEDDED)**: Uses frame sequences stored in the device's flash memory.
+3. **Online Animation (ANIMATION_ONLINE)**: Fetches animated GIFs from your GitHub repository.
+
+### Setting Up Animated Icons
+
+```cpp
+#include <WeatherAnimations.h>
+
+// Create WeatherAnimations instance
+WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
+
+void setup() {
+  // Initialize with your preferred display
+  weatherAnim.begin(TFT_DISPLAY);  // TFT display for colour animations
+  
+  // Set to online animation mode (for TFT displays)
+  weatherAnim.setAnimationMode(ANIMATION_ONLINE);
+  
+  // Set animation sources (animated GIFs)
+  weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, 
+    "https://raw.githubusercontent.com/your-username/weather-icons/main/production/tft_animated/sunny-day.gif");
+  weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, 
+    "https://raw.githubusercontent.com/your-username/weather-icons/main/production/tft_animated/rainy.gif");
+  
+  // Or for embedded animations on OLED displays
+  weatherAnim.begin(OLED_DISPLAY);
+  weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+}
+
+void loop() {
+  // The update function now handles animating the icons
+  weatherAnim.update();
+  delay(10);
+}
+```
+
+### Converting SVG to Animated Icons
+
+Use the provided `convert_animated_weather_icons.py` script to extract animation frames from SVG files and convert them to:
+1. Animated GIFs for TFT displays
+2. Sequences of bitmap frames for OLED displays
+
+```bash
+python3 convert_animated_weather_icons.py /path/to/weather-icons
+```
+
+This will:
+- Extract animation frames from the SVG files based on their animation timeline
+- Create animated GIFs for TFT displays
+- Generate bitmap sequences for OLED displays
+- Create a C++ header file with the bitmap data
+- Generate a URL mapping file for online fetching
+
+### Combining Transitions and Animations
+
+You can combine transitions with animations for even more impressive visual effects:
+
+```cpp
+// Start with a rain animation sliding in from the right
+weatherAnim.runTransition(WEATHER_RAIN, TRANSITION_RIGHT_TO_LEFT, 1500);
+
+// When the transition completes, the animation will continue to play
+while(!weatherAnim.runTransition(WEATHER_RAIN, TRANSITION_RIGHT_TO_LEFT, 1500)) {
+  delay(10);
+}
+
+// The animation continues playing after the transition
+```
+
+### Tips for Animated Icons
+
+- **For OLED displays**: Use the embedded animation mode with simple animations (fewer frames)
+- **For TFT displays**: Use online animation mode with GIFs for full colour animations
+- **Memory usage**: Be mindful of memory usage, especially with embedded animations on ESP8266
+- **Performance**: If animations are too slow, reduce the number of frames or use simpler animations
+- **Customization**: Create your own animations by modifying the SVGs in the weather-icons repository
+
 ## Using Transition Animations
 
 The library now includes support for smooth transition animations that can be used as interstitials between screens. These transitions add a polished look to your user interface when switching between different content.
