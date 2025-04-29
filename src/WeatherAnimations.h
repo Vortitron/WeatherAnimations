@@ -65,6 +65,10 @@ private:
     // Custom weather entity ID
     const char* _weatherEntityID;
     
+    // Cooldown for weather data fetching
+    unsigned long _lastFetchTime;
+    unsigned long _fetchCooldown; // in milliseconds
+    
     // Animation data structure
     struct Animation {
         const uint8_t** frames;

@@ -11,7 +11,8 @@ Adafruit_SSD1306* oledDisplay = nullptr;
 WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, const char* haIP, const char* haToken)
     : _ssid(ssid), _password(password), _haIP(haIP), _haToken(haToken),
       _displayType(OLED_DISPLAY), _i2cAddr(0x3C), _mode(CONTINUOUS_WEATHER),
-      _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast") {
+      _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast"),
+      _lastFetchTime(0), _fetchCooldown(300000) { // 5 minutes cooldown
     // Initialize animations array
     for (int i = 0; i < 5; i++) {
         _animations[i].frames = nullptr;
@@ -46,9 +47,14 @@ void WeatherAnimations::setMode(uint8_t mode) {
 }
 
 void WeatherAnimations::update() {
-    // Fetch new weather data if connected
+    // Fetch new weather data if connected and cooldown period has passed
     if (WiFi.status() == WL_CONNECTED) {
-        fetchWeatherData();
+        unsigned long currentTime = millis();
+        if (currentTime - _lastFetchTime >= _fetchCooldown) {
+            if (fetchWeatherData()) {
+                _lastFetchTime = currentTime;
+            }
+        }
     }
     
     // Display animation based on current weather and mode
