@@ -22,6 +22,13 @@
 #define SIMPLE_TRANSITION   1
 #define CONTINUOUS_WEATHER  2
 
+// Define transition directions
+#define TRANSITION_RIGHT_TO_LEFT 1
+#define TRANSITION_LEFT_TO_RIGHT 2
+#define TRANSITION_TOP_TO_BOTTOM 3
+#define TRANSITION_BOTTOM_TO_TOP 4
+#define TRANSITION_FADE          5
+
 // Weather condition codes (simplified for demonstration)
 #define WEATHER_CLEAR   0
 #define WEATHER_CLOUDY  1
@@ -55,6 +62,10 @@ public:
     // Set online animation source URL for a weather condition (for TFT or detailed animations)
     void setOnlineAnimationSource(uint8_t weatherCondition, const char* url);
     
+    // Run a transition animation between screens
+    // Returns true when animation is complete
+    bool runTransition(uint8_t weatherCondition, uint8_t direction, uint16_t duration = 1000);
+    
 private:
     // Wi-Fi and Home Assistant credentials
     const char* _ssid;
@@ -80,15 +91,18 @@ private:
     unsigned long _lastFetchTime;
     unsigned long _fetchCooldown; // in milliseconds
     
+    // Transition animation state
+    uint8_t _transitionDirection;
+    unsigned long _transitionStartTime;
+    unsigned long _transitionDuration;
+    bool _isTransitioning;
+    
     // Animation data structure
     struct Animation {
         const uint8_t** frames;
         uint8_t frameCount;
         uint16_t frameDelay;
-    
-    // Set animation based on Home Assistant weather condition
-    bool setAnimationFromHACondition(const char* condition, bool isDaytime);
-};
+    };
     Animation _animations[5]; // For 5 weather conditions
     
     // Online animation sources
@@ -109,6 +123,10 @@ private:
     void initDisplay();
     bool fetchOnlineAnimation(uint8_t weatherCondition);
     void renderTFTAnimation(uint8_t weatherCondition);
+    void displayTransitionFrame(uint8_t weatherCondition, float progress);
+    
+    // Set animation based on Home Assistant weather condition
+    bool setAnimationFromHACondition(const char* condition, bool isDaytime);
 };
 
 #endif // WEATHER_ANIMATIONS_H 

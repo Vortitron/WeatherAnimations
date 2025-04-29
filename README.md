@@ -208,6 +208,56 @@ brew install inkscape imagemagick
 pip3 install pillow
 ```
 
+## Using Transition Animations
+
+The library now includes support for smooth transition animations that can be used as interstitials between screens. These transitions add a polished look to your user interface when switching between different content.
+
+### Available Transition Effects
+
+- **Right to Left**: Content slides in from the right edge
+- **Left to Right**: Content slides in from the left edge
+- **Top to Bottom**: Content slides in from the top
+- **Bottom to Top**: Content slides in from the bottom
+- **Fade**: Content fades in gradually
+
+### Using Transitions in Your Sketch
+
+```cpp
+#include <WeatherAnimations.h>
+
+// Create WeatherAnimations instance
+WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
+
+void setup() {
+  // Initialize with your preferred display
+  weatherAnim.begin(OLED_DISPLAY, 0x3C);
+}
+
+void loop() {
+  // Your regular code...
+  
+  // When you want to show a transition, call runTransition:
+  // Parameters: weatherCondition, direction, duration in milliseconds
+  weatherAnim.runTransition(WEATHER_RAIN, TRANSITION_RIGHT_TO_LEFT, 1500);
+  
+  // The transition is running. You can wait for it to complete:
+  while(!weatherAnim.runTransition(WEATHER_RAIN, TRANSITION_RIGHT_TO_LEFT, 1500)) {
+    // The function returns true when the transition is complete
+    delay(10); // Small delay to avoid overloading the processor
+  }
+  
+  // Now the transition is complete, you can continue with other operations
+}
+```
+
+### Tips for Using Transitions
+
+- Keep transitions between 500-2000ms for best visual effect
+- For quick UI changes, use `TRANSITION_FADE` with shorter durations
+- For showcasing weather changes, longer sliding transitions work well
+- The transition automatically uses the correct animation based on display type (OLED or TFT)
+- When using as an interstitial, consider triggering the transition before loading new content
+
 ## Requirements
 
 - Arduino IDE

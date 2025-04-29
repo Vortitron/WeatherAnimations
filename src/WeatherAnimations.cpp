@@ -20,7 +20,7 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
     : _ssid(ssid), _password(password), _haIP(haIP), _haToken(haToken),
       _displayType(OLED_DISPLAY), _i2cAddr(0x3C), _mode(CONTINUOUS_WEATHER),
       _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast"),
-      _lastFetchTime(0), _fetchCooldown(300000) { // 5 minutes cooldown
+      _lastFetchTime(0), _fetchCooldown(300000), _isTransitioning(false) { // 5 minutes cooldown
     // Initialize animations array
     for (int i = 0; i < 5; i++) {
         _animations[i].frames = nullptr;
@@ -166,6 +166,26 @@ bool WeatherAnimations::fetchWeatherData() {
 }
 
 void WeatherAnimations::displayAnimation() {
+    // If currently in transition mode, handle that instead of normal display
+    if (_isTransitioning) {
+        unsigned long currentTime = millis();
+        unsigned long elapsedTime = currentTime - _transitionStartTime;
+        
+        // Calculate progress (0.0 to 1.0)
+        float progress = min(1.0f, (float)elapsedTime / _transitionDuration);
+        
+        // Display the transition frame
+        displayTransitionFrame(_currentWeather, progress);
+        
+        // End transition when complete
+        if (progress >= 1.0f) {
+            _isTransitioning = false;
+        }
+        
+        return;
+    }
+    
+    // Regular animation display (existing code)
     if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
         oledDisplay->clearDisplay();
         
@@ -354,7 +374,18 @@ void WeatherAnimations::initDisplay() {
             delete oledDisplay;
             oledDisplay = nullptr;
         }
-
+    } else if (_displayType == TFT_DISPLAY) {
+        #if defined(ESP8266) || defined(ESP32)
+        tftDisplay = new TFT_eSPI();
+        tftDisplay->init();
+        tftDisplay->fillScreen(TFT_BLACK);
+        tftDisplay->setRotation(0);
+        Serial.println("TFT display initialized.");
+        #else
+        Serial.println("TFT display not supported on this platform.");
+        #endif
+    }
+}
 
 bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool isDaytime) {
     // Find the appropriate icon based on condition and time of day
@@ -404,8 +435,6 @@ bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool 
     
     return true;
 }
-
-
 
 bool WeatherAnimations::fetchWeatherData() {
     if (WiFi.status() != WL_CONNECTED) {
@@ -508,15 +537,237 @@ bool WeatherAnimations::fetchWeatherData() {
     }
 }
 
-     else if (_displayType == TFT_DISPLAY) {
-        #if defined(ESP8266) || defined(ESP32)
-        tftDisplay = new TFT_eSPI();
-        tftDisplay->init();
-        tftDisplay->fillScreen(TFT_BLACK);
-        tftDisplay->setRotation(0);
-        Serial.println("TFT display initialized.");
-        #else
-        Serial.println("TFT display not supported on this platform.");
-        #endif
+// New method: Run a transition animation between screens
+bool WeatherAnimations::runTransition(uint8_t weatherCondition, uint8_t direction, uint16_t duration) {
+    // If already transitioning, check if it's complete
+    if (_isTransitioning) {
+        // Update the display (this will progress the transition)
+        displayAnimation();
+        
+        // Return true if transition is complete
+        return !_isTransitioning;
+    }
     
+    // Start a new transition
+    _currentWeather = weatherCondition;
+    _transitionDirection = direction;
+    _transitionStartTime = millis();
+    _transitionDuration = duration;
+    _isTransitioning = true;
+    
+    // Update the display to show the first frame
+    displayAnimation();
+    
+    // Return false since the transition just started
+    return false;
+}
+
+// New method: Display a single frame of the transition animation
+void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float progress) {
+    if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
+        // Clear the display
+        oledDisplay->clearDisplay();
+        
+        // Check if animation is available
+        if (_animations[weatherCondition].frameCount > 0) {
+            // For simplicity, use the first frame of the animation
+            const uint8_t* frameData = _animations[weatherCondition].frames[0];
+            
+            // Get display dimensions
+            int16_t width = SCREEN_WIDTH;
+            int16_t height = SCREEN_HEIGHT;
+            
+            // Calculate display position based on transition direction and progress
+            int16_t x = 0;
+            int16_t y = 0;
+            
+            switch (_transitionDirection) {
+                case TRANSITION_RIGHT_TO_LEFT:
+                    // Start from right (off-screen) and move left
+                    x = width * (1.0f - progress);
+                    break;
+                    
+                case TRANSITION_LEFT_TO_RIGHT:
+                    // Start from left (off-screen) and move right
+                    x = -width * (1.0f - progress);
+                    break;
+                    
+                case TRANSITION_TOP_TO_BOTTOM:
+                    // Start from top (off-screen) and move down
+                    y = -height * (1.0f - progress);
+                    break;
+                    
+                case TRANSITION_BOTTOM_TO_TOP:
+                    // Start from bottom (off-screen) and move up
+                    y = height * (1.0f - progress);
+                    break;
+                    
+                case TRANSITION_FADE:
+                    // Simple approximation of fading by drawing only some pixels
+                    // This is imperfect but gives a fade-like effect
+                    oledDisplay->drawBitmap(0, 0, frameData, width, height, WHITE);
+                    
+                    // Draw black rectangles that diminish as progress increases
+                    for (int16_t i = 0; i < height; i += 2) {
+                        int16_t barHeight = max(1, (int16_t)(2 * (1.0f - progress)));
+                        if (i % 4 < barHeight) {
+                            oledDisplay->fillRect(0, i, width, 1, BLACK);
+                        }
+                    }
+                    oledDisplay->display();
+                    return;
+            }
+            
+            // Draw the bitmap at the calculated position
+            oledDisplay->drawBitmap(x, y, frameData, width, height, WHITE);
+        } else {
+            // Default text display if no animation is set
+            oledDisplay->setTextSize(1);
+            oledDisplay->setTextColor(WHITE);
+            oledDisplay->setCursor(0, 0);
+            switch (weatherCondition) {
+                case WEATHER_CLEAR:   oledDisplay->println("Clear Sky"); break;
+                case WEATHER_CLOUDY:  oledDisplay->println("Cloudy"); break;
+                case WEATHER_RAIN:    oledDisplay->println("Rainy"); break;
+                case WEATHER_SNOW:    oledDisplay->println("Snowy"); break;
+                case WEATHER_STORM:   oledDisplay->println("Stormy"); break;
+                default:              oledDisplay->println("Unknown");
+            }
+        }
+        
+        oledDisplay->display();
+    } else if (_displayType == TFT_DISPLAY) {
+        #if defined(ESP8266) || defined(ESP32)
+        if (tftDisplay != nullptr) {
+            // For TFT display, we'll implement a simple transition
+            // This is a basic implementation - you can enhance it with more complex animations
+            
+            // Clear the display on the first frame
+            if (progress == 0.0f) {
+                tftDisplay->fillScreen(TFT_BLACK);
+            }
+            
+            // Get display dimensions
+            int16_t width = TFT_WIDTH;
+            int16_t height = TFT_HEIGHT;
+            
+            // Calculate display position based on transition direction and progress
+            int16_t x = 0;
+            int16_t y = 0;
+            
+            switch (_transitionDirection) {
+                case TRANSITION_RIGHT_TO_LEFT:
+                    x = width * (1.0f - progress);
+                    break;
+                case TRANSITION_LEFT_TO_RIGHT:
+                    x = -width * (1.0f - progress);
+                    break;
+                case TRANSITION_TOP_TO_BOTTOM:
+                    y = -height * (1.0f - progress);
+                    break;
+                case TRANSITION_BOTTOM_TO_TOP:
+                    y = height * (1.0f - progress);
+                    break;
+                case TRANSITION_FADE:
+                    // For TFT, we can actually do a proper fade by changing opacity
+                    // Implement a basic color blend for fade effect
+                    tftDisplay->fillScreen(TFT_BLACK);
+                    
+                    // The more progress, the more visible the content
+                    uint8_t opacity = progress * 255;
+                    
+                    // Draw the weather icon with fading effect
+                    tftDisplay->setTextColor(TFT_WHITE, TFT_BLACK);
+                    tftDisplay->setCursor(10, 10);
+                    tftDisplay->setTextSize(2);
+                    
+                    // Adjust text color based on opacity (simple approximation)
+                    uint16_t textColor = tftDisplay->color565(opacity, opacity, opacity);
+                    tftDisplay->setTextColor(textColor);
+                    
+                    switch (weatherCondition) {
+                        case WEATHER_CLEAR:
+                            tftDisplay->println("Clear Sky");
+                            tftDisplay->fillCircle(120, 160, 40 * progress, TFT_YELLOW); // Sun growing
+                            break;
+                        case WEATHER_CLOUDY:
+                            tftDisplay->println("Cloudy");
+                            tftDisplay->fillRoundRect(80, 140, 100 * progress, 40 * progress, 20, TFT_WHITE);
+                            break;
+                        // Add cases for other weather conditions
+                        default:
+                            tftDisplay->println("Weather");
+                    }
+                    return;
+            }
+            
+            // Try to use online animation if available
+            if (_onlineAnimationURLs[weatherCondition] != nullptr && 
+                _onlineAnimationCache[weatherCondition].isLoaded) {
+                
+                // If we have the animation data, we could render it with transition effects
+                // This is a placeholder - actual implementation depends on image format
+                
+                // Display a basic placeholder with transition
+                tftDisplay->fillScreen(TFT_BLACK);
+                tftDisplay->setCursor(x + 10, y + 10);
+                tftDisplay->setTextColor(TFT_WHITE);
+                tftDisplay->setTextSize(2);
+                
+                switch (weatherCondition) {
+                    case WEATHER_CLEAR:
+                        tftDisplay->println("Clear Sky");
+                        tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
+                        break;
+                    case WEATHER_CLOUDY:
+                        tftDisplay->println("Cloudy");
+                        tftDisplay->fillRoundRect(x + 80, y + 140, 100, 40, 20, TFT_WHITE);
+                        break;
+                    case WEATHER_RAIN:
+                        tftDisplay->println("Rainy");
+                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
+                        for (int i = 0; i < 10; i++) {
+                            tftDisplay->drawLine(x + 90 + i*10, y + 170, x + 90 + i*10 + 5, y + 190, TFT_BLUE);
+                        }
+                        break;
+                    case WEATHER_SNOW:
+                        tftDisplay->println("Snowy");
+                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
+                        for (int i = 0; i < 10; i++) {
+                            tftDisplay->drawPixel(x + 90 + i*10, y + 180, TFT_WHITE);
+                            tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180, TFT_WHITE);
+                            tftDisplay->drawPixel(x + 90 + i*10, y + 180 + 1, TFT_WHITE);
+                            tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180 + 1, TFT_WHITE);
+                        }
+                        break;
+                    case WEATHER_STORM:
+                        tftDisplay->println("Stormy");
+                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_DARKGREY);
+                        tftDisplay->fillTriangle(x + 120, y + 170, x + 130, y + 200, x + 110, y + 190, TFT_YELLOW);
+                        break;
+                    default:
+                        tftDisplay->println("Unknown");
+                }
+            } else {
+                // Fallback to basic display with transition
+                tftDisplay->fillScreen(TFT_BLACK);
+                tftDisplay->setCursor(x + 10, y + 10);
+                tftDisplay->setTextColor(TFT_WHITE);
+                tftDisplay->setTextSize(2);
+                
+                switch (weatherCondition) {
+                    case WEATHER_CLEAR:
+                        tftDisplay->println("Clear Sky");
+                        tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
+                        break;
+                    // Add cases for other weather types (same as above)
+                    default:
+                        tftDisplay->println("Weather");
+                }
+            }
+        }
+        #endif
+    }
+}
+
  
