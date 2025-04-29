@@ -1,0 +1,38 @@
+{
+  "tft": {
+    "clear-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/clear-night.png",
+    "cloudy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/cloudy.png",
+    "fog": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/fog.png",
+    "hail": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/hail.png",
+    "lightning": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/lightning.png",
+    "lightning-rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/lightning-rainy.png",
+    "partlycloudy-day": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/partlycloudy-day.png",
+    "partlycloudy-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/partlycloudy-night.png",
+    "pouring": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/pouring.png",
+    "rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/rainy.png",
+    "snowy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/snowy.png",
+    "snowy-rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/snowy-rainy.png",
+    "sunny-day": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/sunny-day.png",
+    "sunny-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/sunny-night.png",
+    "windy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/windy.png",
+    "exceptional": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/exceptional.png"
+  },
+  "oled": {
+    "clear-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/clear-night.png",
+    "cloudy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/cloudy.png",
+    "fog": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/fog.png",
+    "hail": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/hail.png",
+    "lightning": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/lightning.png",
+    "lightning-rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/lightning-rainy.png",
+    "partlycloudy-day": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/partlycloudy-day.png",
+    "partlycloudy-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/partlycloudy-night.png",
+    "pouring": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/pouring.png",
+    "rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/rainy.png",
+    "snowy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/snowy.png",
+    "snowy-rainy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/snowy-rainy.png",
+    "sunny-day": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/sunny-day.png",
+    "sunny-night": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/sunny-night.png",
+    "windy": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/windy.png",
+    "exceptional": "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled/exceptional.png"
+  }
+}

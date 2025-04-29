@@ -1,10 +1,18 @@
 #ifndef WEATHER_ANIMATIONS_H
 #define WEATHER_ANIMATIONS_H
 
+// Define ARDUINO to be > 100 to use Arduino.h instead of WProgram.h
+#ifndef ARDUINO
+#define ARDUINO 10800 // Arduino 1.8.0 or higher
+#endif
+
 #include <Arduino.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include <HttpClient.h>
 #include <Adafruit_GFX.h>
+
+// Include TFT_eSPI library for TFT display support
+#include <TFT_eSPI.h>
 
 // Define display types
 #define OLED_DISPLAY 1
@@ -21,7 +29,7 @@
 #define WEATHER_SNOW    3
 #define WEATHER_STORM   4
 
-class WeatherAnimations {
+    class WeatherAnimations {
 public:
     // Constructor with Wi-Fi and Home Assistant credentials
     WeatherAnimations(const char* ssid, const char* password, const char* haIP, const char* haToken);
@@ -43,6 +51,9 @@ public:
     
     // Set custom weather entity ID for Home Assistant
     void setWeatherEntity(const char* entityID);
+    
+    // Set online animation source URL for a weather condition (for TFT or detailed animations)
+    void setOnlineAnimationSource(uint8_t weatherCondition, const char* url);
     
 private:
     // Wi-Fi and Home Assistant credentials
@@ -74,14 +85,30 @@ private:
         const uint8_t** frames;
         uint8_t frameCount;
         uint16_t frameDelay;
-    };
+    
+    // Set animation based on Home Assistant weather condition
+    bool setAnimationFromHACondition(const char* condition, bool isDaytime);
+};
     Animation _animations[5]; // For 5 weather conditions
+    
+    // Online animation sources
+    const char* _onlineAnimationURLs[5]; // URLs for online animation data
+    
+    // Structures for online animation data caching
+    struct OnlineAnimation {
+        uint8_t* imageData;
+        size_t dataSize;
+        bool isLoaded;
+    };
+    OnlineAnimation _onlineAnimationCache[5]; // Cache for online animations
     
     // Internal methods
     bool connectToWiFi();
     bool fetchWeatherData();
     void displayAnimation();
     void initDisplay();
+    bool fetchOnlineAnimation(uint8_t weatherCondition);
+    void renderTFTAnimation(uint8_t weatherCondition);
 };
 
 #endif // WEATHER_ANIMATIONS_H 
