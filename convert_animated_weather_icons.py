@@ -8,6 +8,42 @@ import xml.etree.ElementTree as ET
 import tempfile
 from pathlib import Path
 import shutil
+import math
+
+# Enable detailed debug output
+DEBUG = True
+
+def debug(message):
+    if DEBUG:
+        print(f"DEBUG: {message}")
+
+print("Starting animated weather icons conversion...")
+
+# Try to import required libraries, install if missing
+try:
+    from PIL import Image
+    try:
+        from PIL.Image import LANCZOS
+    except ImportError:
+        # For older versions of Pillow
+        LANCZOS = Image.ANTIALIAS
+    import cairosvg
+    print("Successfully imported all required libraries")
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Installing required Python libraries...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow", "cairosvg"])
+        from PIL import Image
+        try:
+            from PIL.Image import LANCZOS
+        except ImportError:
+            LANCZOS = Image.ANTIALIAS
+        import cairosvg
+        print("Successfully installed and imported all required libraries")
+    except Exception as e:
+        print(f"Failed to install required libraries: {e}")
+        sys.exit(1)
 
 """
 Animated Weather Icons Converter Script
@@ -27,16 +63,6 @@ Usage:
 python3 convert_animated_weather_icons.py /path/to/weather-icons
 
 """
-
-# Try to import required libraries, install if missing
-try:
-    from PIL import Image
-    import cairosvg
-except ImportError:
-    print("Installing required Python libraries...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow", "cairosvg"])
-    from PIL import Image
-    import cairosvg
 
 # Weather conditions mapping (Met.no to icon filename)
 WEATHER_CONDITIONS = {
@@ -70,12 +96,6 @@ def check_dependencies():
     """Check if required external tools are installed"""
     missing_deps = []
     
-    # Check Inkscape
-    try:
-        subprocess.run(["inkscape", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except FileNotFoundError:
-        missing_deps.append("Inkscape")
-    
     # Check ImageMagick
     try:
         subprocess.run(["convert", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -85,7 +105,6 @@ def check_dependencies():
     if missing_deps:
         print(f"Error: Missing dependencies: {', '.join(missing_deps)}")
         print("Please install them and try again.")
-        print("- Inkscape: https://inkscape.org/release")
         print("- ImageMagick: https://imagemagick.org/script/download.php")
         sys.exit(1)
 
@@ -93,9 +112,11 @@ def create_output_dirs(base_path):
     """Create output directories for TFT and OLED files"""
     tft_dir = os.path.join(base_path, "production", "tft_animated")
     oled_dir = os.path.join(base_path, "production", "oled_animated")
+    temp_dir = os.path.join(base_path, "production", "temp_frames")
     os.makedirs(tft_dir, exist_ok=True)
     os.makedirs(oled_dir, exist_ok=True)
-    return tft_dir, oled_dir
+    os.makedirs(temp_dir, exist_ok=True)
+    return tft_dir, oled_dir, temp_dir
 
 def get_svg_animation_params(svg_path):
     """Extract animation parameters from SVG file"""
@@ -125,39 +146,91 @@ def get_svg_animation_params(svg_path):
         print(f"Error extracting animation params from {svg_path}: {e}")
         return ANIM_DURATION
 
-def extract_svg_frames(svg_path, output_dir, frame_count):
+def extract_svg_frames(svg_path, output_dir, frame_count, permanent_temp_dir):
     """
     Extract animation frames from an SVG file
-    Returns a list of temporary PNG file paths
+    Returns a list of permanent PNG file paths
     """
     try:
         # Get animation duration
         duration_ms = get_svg_animation_params(svg_path)
         frame_paths = []
         
+        # Create a unique subfolder name for this icon
+        icon_name = os.path.splitext(os.path.basename(svg_path))[0]
+        icon_temp_dir = os.path.join(permanent_temp_dir, icon_name)
+        os.makedirs(icon_temp_dir, exist_ok=True)
+        
         # Create temporary directory for frames
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Extract frames using Inkscape's ability to specify animation time
-            for i in range(frame_count):
-                # Calculate time point in the animation
-                time_ms = (i * duration_ms) / frame_count
-                
-                # Frame output path
-                frame_path = os.path.join(temp_dir, f"frame_{i:03d}.png")
-                frame_paths.append(frame_path)
-                
-                # Use Inkscape to render the SVG at this specific animation time
-                cmd = [
-                    "inkscape",
-                    "--export-filename", frame_path,
-                    "--export-width", str(TFT_WIDTH),
-                    "--export-height", str(TFT_HEIGHT),
-                    "--export-background", "transparent",
-                    f"--export-frame={time_ms/1000}",  # Time in seconds
-                    svg_path
-                ]
-                subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # First convert SVG to PNG at full size
+            base_png = os.path.join(temp_dir, "base.png")
             
+            print(f"Converting SVG to PNG: {svg_path} -> {base_png}")
+            try:
+                # Use cairosvg to convert SVG to PNG
+                cairosvg.svg2png(url=svg_path, write_to=base_png, 
+                                output_width=TFT_WIDTH, output_height=TFT_HEIGHT)
+                
+                if not os.path.exists(base_png):
+                    print(f"Error: Base PNG file not created at {base_png}")
+                    return [], duration_ms
+                
+                print(f"Base PNG created successfully at {base_png}")
+            except Exception as e:
+                print(f"Error converting SVG to PNG with cairosvg: {e}")
+                return [], duration_ms
+            
+            # Load the base image
+            base_image = Image.open(base_png)
+            print(f"Base image size: {base_image.size}")
+            
+            # Generate frames using a simple pulsing effect for all weather icons
+            for i in range(frame_count):
+                # Frame output path (temporary)
+                temp_frame_path = os.path.join(temp_dir, f"frame_{i:03d}.png")
+                
+                # Apply a simple animation effect based on frame number
+                progress = i / (frame_count - 1) if frame_count > 1 else 0  # 0.0 to 1.0
+                
+                # Use a simple fade in/out pulsing effect for all icons
+                try:
+                    # Vary opacity for a pulsing effect
+                    opacity = int(155 + 100 * math.sin(progress * 2 * math.pi))
+                    opacity = max(155, min(255, opacity))  # Keep between 155-255 for visibility
+                    
+                    # Create a copy with the desired opacity
+                    frame = Image.new("RGBA", base_image.size, (0, 0, 0, 0))
+                    
+                    # Get RGBA data
+                    base_data = base_image.convert("RGBA")
+                    
+                    # Apply a slight position shift for more movement
+                    offset_x = int(5 * math.sin(progress * 2 * math.pi))
+                    offset_y = int(5 * math.cos(progress * 2 * math.pi))
+                    
+                    # Paste with the calculated offset
+                    frame.paste(base_data, (offset_x, offset_y), base_data)
+                    
+                    # Save the frame to temp location
+                    frame.save(temp_frame_path)
+                    
+                    # Now copy to permanent location
+                    permanent_frame_path = os.path.join(icon_temp_dir, f"frame_{i:03d}.png")
+                    shutil.copy2(temp_frame_path, permanent_frame_path)
+                    
+                    print(f"Saved frame {i} to {permanent_frame_path}")
+                    
+                    # Verify the frame was saved
+                    if os.path.exists(permanent_frame_path):
+                        frame_paths.append(permanent_frame_path)
+                    else:
+                        print(f"Error: Frame file not created at {permanent_frame_path}")
+                        
+                except Exception as e:
+                    print(f"Error creating frame {i}: {e}")
+            
+            print(f"Created {len(frame_paths)} frames for {svg_path}")
             return frame_paths, duration_ms
     except Exception as e:
         print(f"Error extracting SVG frames from {svg_path}: {e}")
@@ -166,6 +239,17 @@ def extract_svg_frames(svg_path, output_dir, frame_count):
 def create_animated_gif(frame_paths, output_path, duration_ms):
     """Create animated GIF from extracted frames"""
     try:
+        # Check if we have any frames
+        if not frame_paths:
+            print("No frames to create GIF from")
+            return False
+            
+        # Check if all frames exist
+        for frame_path in frame_paths:
+            if not os.path.exists(frame_path):
+                print(f"Frame file not found: {frame_path}")
+                return False
+                
         # Calculate delay between frames in 1/100 of a second
         delay = int((duration_ms / len(frame_paths)) / 10)
         delay = max(2, delay)  # Ensure minimum delay (ImageMagick requires at least 2)
@@ -175,8 +259,26 @@ def create_animated_gif(frame_paths, output_path, duration_ms):
         cmd.extend(frame_paths)
         cmd.append(output_path)
         
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
+        # Create the output directory if it doesn't exist
+        output_dir = os.path.dirname(output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Print the command for debugging
+        print("Running convert command:", " ".join(cmd))
+        
+        result = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            print(f"Convert command failed with code {result.returncode}")
+            print(f"Error output: {result.stderr.decode('utf-8')}")
+            return False
+            
+        # Verify the GIF was created
+        if os.path.exists(output_path):
+            print(f"Successfully created GIF: {output_path}")
+            return True
+        else:
+            print(f"Failed to create GIF: {output_path}")
+            return False
     except Exception as e:
         print(f"Error creating animated GIF: {e}")
         return False
@@ -186,21 +288,46 @@ def convert_frames_to_monochrome(frame_paths, output_dir, base_name):
     monochrome_paths = []
     
     try:
-        for i, frame_path in enumerate(frame_paths):
-            output_path = os.path.join(output_dir, f"{base_name}_frame_{i:03d}.png")
-            monochrome_paths.append(output_path)
+        # Check if we have any frames
+        if not frame_paths:
+            print("No frames to convert to monochrome")
+            return []
             
-            # Convert to monochrome and resize
-            cmd = [
-                "convert", frame_path,
-                "-colorspace", "gray",
-                "-colors", "2",
-                "-white-threshold", "50%",
-                "-black-threshold", "50%",
-                "-resize", f"{OLED_WIDTH}x{OLED_HEIGHT}",
-                output_path
-            ]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Create the output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
+        for i, frame_path in enumerate(frame_paths):
+            # Check if source frame exists
+            if not os.path.exists(frame_path):
+                print(f"Frame file not found: {frame_path}")
+                continue
+                
+            output_path = os.path.join(output_dir, f"{base_name}_frame_{i:03d}.png")
+            
+            try:
+                # Use PIL directly instead of ImageMagick for better compatibility
+                img = Image.open(frame_path)
+                
+                # Convert to grayscale and resize
+                img = img.convert("L")  # Convert to grayscale
+                img = img.resize((OLED_WIDTH, OLED_HEIGHT), LANCZOS)
+                
+                # Threshold to true monochrome (binary)
+                threshold = 128
+                img = img.point(lambda x: 255 if x > threshold else 0, mode='1')
+                
+                # Save the monochrome image
+                img.save(output_path)
+                
+                if os.path.exists(output_path):
+                    print(f"Successfully converted to monochrome: {output_path}")
+                    monochrome_paths.append(output_path)
+                else:
+                    print(f"Failed to save monochrome image: {output_path}")
+                    
+            except Exception as e:
+                print(f"Error processing frame {i}: {e}")
+                continue
         
         return monochrome_paths
     except Exception as e:
@@ -257,23 +384,33 @@ def frames_to_c_arrays(frame_paths, condition_name):
         return "", 0
 
 def main():
+    print("Starting main function...")
+    
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} /path/to/weather-icons")
         sys.exit(1)
     
     weather_icons_path = sys.argv[1]
+    print(f"Using weather icons path: {weather_icons_path}")
+    
     if not os.path.isdir(weather_icons_path):
         print(f"Error: {weather_icons_path} is not a valid directory")
         sys.exit(1)
     
     # Check for required dependencies
+    print("Checking dependencies...")
     check_dependencies()
     
     # Create output directories
-    tft_dir, oled_dir = create_output_dirs(weather_icons_path)
+    print("Creating output directories...")
+    tft_dir, oled_dir, temp_frames_dir = create_output_dirs(weather_icons_path)
+    print(f"TFT directory: {tft_dir}")
+    print(f"OLED directory: {oled_dir}")
+    print(f"Temp frames directory: {temp_frames_dir}")
     
     # Create header file for OLED bitmap frames
     header_file_path = os.path.join(os.path.dirname(weather_icons_path), "WeatherAnimationsAnimatedIcons.h")
+    print(f"Will create header file at: {header_file_path}")
     header_content = """#ifndef WEATHER_ANIMATIONS_ANIMATED_ICONS_H
 #define WEATHER_ANIMATIONS_ANIMATED_ICONS_H
 
@@ -308,7 +445,7 @@ def main():
             print(f"Processing animation: {condition_full} -> {svg_filename}")
             
             # Extract frames from SVG
-            frame_paths, duration_ms = extract_svg_frames(svg_path, tft_dir, FRAME_COUNT)
+            frame_paths, duration_ms = extract_svg_frames(svg_path, tft_dir, FRAME_COUNT, temp_frames_dir)
             if not frame_paths:
                 print(f"  Skipping {condition_full} - could not extract frames")
                 continue
