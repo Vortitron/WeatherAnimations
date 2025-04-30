@@ -1,38 +1,111 @@
 # WeatherAnimations Library
 
-A library for displaying animated weather icons and forecasts on OLED and TFT displays.
+A versatile Arduino library for displaying weather animations on OLED and TFT displays. This library fetches weather data from Home Assistant and displays appropriate animations based on current conditions.
 
-## Overview
+## Features
 
-This library allows you to display weather animations from various sources:
-- Embedded animations (stored in program memory)
-- Online animations (downloaded and cached)
-- Static icons
+- Supports both OLED (SSD1306) and TFT displays
+- Connects to Home Assistant to fetch weather data
+- Multiple animation modes:
+  - **Static Mode**: Basic static weather icons
+  - **Embedded Mode**: Pre-loaded animations stored in program memory
+  - **Online Mode**: Dynamically fetches animation data from online sources
+- Smooth transitions between weather states
+- Handles various weather conditions: clear, cloudy, rain, snow, and storms
+- Low memory footprint with fallback capabilities when network is unavailable
 
-It supports both OLED displays (via Adafruit_SSD1306) and TFT displays (via TFT_eSPI), and can connect to Home Assistant for weather data.
+## Animation Modes
 
-## Installation
+The library supports three animation modes:
 
-### Using PlatformIO
+1. **ANIMATION_STATIC**: Uses simple static images for each weather condition, consuming minimal memory.
+2. **ANIMATION_EMBEDDED**: Uses animations embedded in the program memory, providing a balance between visual appeal and memory usage.
+3. **ANIMATION_ONLINE**: Fetches animation data from online sources, providing the richest visuals but requiring an active internet connection.
 
-1. Add the library to your `platformio.ini` file:
+## Online Animation Support
 
-```ini
-lib_deps =
-    https://github.com/vortitron/WeatherAnimations.git
+The online animation feature allows the library to fetch animation frames from web URLs. If the online resources are unavailable, the library gracefully falls back to locally generated animations.
+
+### URL Format
+
+The library expects animation data in a specific JSON format:
+
+```json
+{
+  "frames": [
+    "HEX_DATA_FOR_FRAME_1",
+    "HEX_DATA_FOR_FRAME_2",
+    ...
+  ]
+}
 ```
 
-2. The necessary dependencies will be installed automatically.
+Where each frame's HEX_DATA is a hexadecimal string representing a 1024-byte bitmap (128x64 pixels).
 
-### Using Arduino IDE
+### Setting Up Online Animations
 
-1. Install the following libraries through the Arduino Library Manager:
-   - Adafruit SSD1306
-   - Adafruit GFX Library
-   - TFT_eSPI
-   - ArduinoJson
+To use online animations, set the animation mode to `ANIMATION_ONLINE` and provide URLs for each weather condition:
 
-2. Download this library as a ZIP file and add it through Sketch > Include Library > Add .ZIP Library...
+```cpp
+// Set animation mode to online
+weatherAnim.setAnimationMode(ANIMATION_ONLINE);
+
+// Set online animation sources
+weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, "https://example.com/clear-day.json");
+weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, "https://example.com/cloudy.json");
+weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, "https://example.com/rain.json");
+weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, "https://example.com/snow.json");
+weatherAnim.setOnlineAnimationSource(WEATHER_STORM, "https://example.com/thunderstorms.json");
+```
+
+## Examples
+
+The library includes several examples:
+
+1. **BasicUsage**: A simple demonstration with button control to switch between animation modes.
+2. **MinimalWeatherStation**: A minimal implementation with online animation support.
+3. **FullWeatherStation**: A comprehensive example showing advanced features and multiple display support.
+
+## Getting Started
+
+1. Install the library via the Arduino Library Manager or download from GitHub.
+2. Connect your display (OLED or TFT) to your Arduino/ESP board.
+3. Set up your Home Assistant connection in the example sketch.
+4. Upload one of the example sketches to your board.
+
+## Configuration
+
+For each example, copy the `config_example.h` file to the example directory and rename it to `config.h`. Then modify it with your WiFi and Home Assistant credentials:
+
+```cpp
+// WiFi Settings
+#define WIFI_SSID "YourWiFiSSID"
+#define WIFI_PASSWORD "YourWiFiPassword"
+
+// Home Assistant Settings
+#define HA_IP "your-home-assistant-ip"
+#define HA_TOKEN "your-long-lived-access-token"
+#define HA_WEATHER_ENTITY "weather.your_weather_entity"
+
+// OLED Settings
+#define OLED_ADDRESS 0x3C
+```
+
+## Button Controls
+
+The examples use buttons to provide user control:
+
+- **Encoder Push Button**: Cycle through weather animations in manual mode
+- **Back Button**: Return to live weather data mode
+- **Left Button / Mode Button**: Toggle between static and online animation modes
+
+## Contributing
+
+Contributions to improve the library are welcome. Please feel free to submit issues and pull requests on GitHub.
+
+## License
+
+This library is released under the MIT License.
 
 ## Required Libraries
 
@@ -42,40 +115,6 @@ lib_deps =
 - ESP8266WiFi or WiFi (depending on platform)
 - ESP8266HTTPClient or HTTPClient (depending on platform)
 - ArduinoJson
-
-## Examples
-
-See the `examples` directory for examples, including:
-- Basic OLED weather display
-- TFT weather animations
-- Full weather station with Home Assistant integration
-
-## Configuration
-
-The library can be configured for different displays and data sources. See the example configurations in the `examples` directory.
-
-## Troubleshooting
-
-### Serial Undefined Error
-If you encounter `identifier "Serial" is undefined` errors when compiling:
-
-1. Make sure to initialize Serial in your sketch before using the library:
-   ```cpp
-   void setup() {
-     Serial.begin(115200);
-     // Rest of your setup code...
-   }
-   ```
-
-2. If you don't need Serial debugging, you can modify the library to disable Serial calls by defining:
-   ```cpp
-   #define WA_DISABLE_SERIAL
-   ```
-   before including the library.
-
-## License
-
-MIT License
 
 ## Credits
 

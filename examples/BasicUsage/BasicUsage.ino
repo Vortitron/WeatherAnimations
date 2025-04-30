@@ -22,6 +22,11 @@
 // Define button pins
 const int encoderPUSH = 27; // Button to cycle through animations
 const int backButton = 14;  // Button to return to live HA data
+const int leftButton = 12; //switch from fixed to animated
+
+// Animation mode flag
+bool animatedMode = false; // Start with static mode
+bool lastLeftButtonState = HIGH;
 
 // Weather condition constants
 const uint8_t WEATHER_TYPES[] = {
@@ -52,6 +57,26 @@ const unsigned long debounceDelay = 50;
 	const int oledAddress = 0x3C;
 #else
 	// Use the configuration from config.h
+	// WIFI_SSID, WIFI_PASSWORD, etc. should be defined in config.h
+	#ifndef WIFI_SSID
+	#define WIFI_SSID "YourWiFiSSID"
+	#endif
+	#ifndef WIFI_PASSWORD
+	#define WIFI_PASSWORD "YourWiFiPassword"
+	#endif
+	#ifndef HA_IP
+	#define HA_IP "YourHomeAssistantIP" 
+	#endif
+	#ifndef HA_TOKEN
+	#define HA_TOKEN "YourHomeAssistantToken"
+	#endif
+	#ifndef HA_WEATHER_ENTITY
+	#define HA_WEATHER_ENTITY "weather.forecast_home"
+	#endif
+	#ifndef OLED_ADDRESS
+	#define OLED_ADDRESS 0x3C
+	#endif
+	
 	const char* ssid = WIFI_SSID;
 	const char* password = WIFI_PASSWORD;
 	const char* haIP = HA_IP;
@@ -80,6 +105,7 @@ void setup() {
 	// Initialize button pins
 	pinMode(encoderPUSH, INPUT_PULLUP);
 	pinMode(backButton, INPUT_PULLUP);
+	pinMode(leftButton, INPUT_PULLUP);
 	
 	// Initialize the library with OLED display
 	// Parameters: display type, I2C address (typically 0x3C or 0x3D), manage WiFi connection
@@ -92,6 +118,25 @@ void setup() {
 	// Options: CONTINUOUS_WEATHER or SIMPLE_TRANSITION
 	weatherAnim.setMode(CONTINUOUS_WEATHER);
 	
+	// Set animation mode to static initially
+	// Can be toggled with left button
+	weatherAnim.setAnimationMode(ANIMATION_STATIC);
+	
+	// Set URLs for online animations (used when in ANIMATION_ONLINE mode)
+	// These URLs should point to valid animation data in the expected format
+	const char* clearSkyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/clear-day.json";
+	const char* cloudyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/cloudy.json";
+	const char* rainURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/rain.json";
+	const char* snowURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/snow.json";
+	const char* stormURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/thunderstorms.json";
+	
+	// Set online animation sources
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
+	
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 	Serial.println("Setup complete, starting weather updates...");
 	#endif
@@ -101,6 +146,7 @@ void handleButtons() {
 	// Read current button states
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
+	bool leftButtonState = digitalRead(leftButton);
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
@@ -144,9 +190,36 @@ void handleButtons() {
 		}
 	}
 	
+	// Handle left button (with debounce)
+	if (leftButtonState != lastLeftButtonState) {
+		lastDebounceTime = millis();
+	}
+	
+	if ((millis() - lastDebounceTime) > debounceDelay) {
+		// If the left button state has changed and is now LOW (pressed)
+		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
+			// Toggle animation mode
+			animatedMode = !animatedMode;
+			
+			// Set the animation mode
+			weatherAnim.setAnimationMode(animatedMode ? ANIMATION_ONLINE : ANIMATION_STATIC);
+			
+			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+			Serial.print("Animation mode changed to: ");
+			Serial.println(animatedMode ? "Online/Animated" : "Static");
+			#endif
+			
+			// Force a refresh of the current display
+			if (manualMode) {
+				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
+			}
+		}
+	}
+	
 	// Update button states
 	lastEncoderPushState = encoderPushState;
 	lastBackButtonState = backButtonState;
+	lastLeftButtonState = leftButtonState;
 }
 
 void loop() {

@@ -40,7 +40,7 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
       _displayType(OLED_DISPLAY), _i2cAddr(0x3C), _mode(CONTINUOUS_WEATHER),
       _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast"),
       _lastFetchTime(0), _fetchCooldown(300000), _isTransitioning(false),
-      _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_STATIC) { // 5 minutes cooldown
+      _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_ONLINE) { // Changed from ANIMATION_STATIC to ANIMATION_ONLINE
     
     // Initialize animations array
     for (int i = 0; i < 5; i++) {
@@ -87,7 +87,17 @@ void WeatherAnimations::begin(uint8_t displayType, uint8_t i2cAddr, bool manageW
     // If we're using online animations and we're connected to Wi-Fi, preload the icons
     if (_animationMode == ANIMATION_ONLINE && WiFi.status() == WL_CONNECTED) {
         WA_SERIAL_PRINTLN("Preloading weather icons...");
-        preloadWeatherIcons();
+        // Try to get animations from online resources first
+        if (!initializeAnimationsFromOnline()) {
+            // If failed, generate fallback animations
+            WA_SERIAL_PRINTLN("Failed to load animations from online, using fallbacks");
+            generateFallbackAnimations();
+        } else {
+            WA_SERIAL_PRINTLN("Successfully loaded animations from online resources");
+        }
+    } else {
+        // If not using online animations or not connected, use fallbacks
+        generateFallbackAnimations();
     }
 }
 
@@ -248,20 +258,42 @@ bool WeatherAnimations::fetchWeatherData() {
         
         WA_SERIAL_PRINT("Detected weather condition: ");
         WA_SERIAL_PRINTLN(condition);
-        WA_SERIAL_PRINT("Is daytime: ");
-        WA_SERIAL_PRINTLN(isDaytime ? "Yes" : "No");
         
-        // Set animation based on the parsed condition
-        setAnimationFromHACondition(condition.c_str(), isDaytime);
+        // Save the previous weather to check if it changed
+        uint8_t previousWeather = _currentWeather;
         
-        http.end();
-        return true;
-    } else {
-        WA_SERIAL_PRINT("HTTP Error: ");
-        WA_SERIAL_PRINTLN(httpCode);
-        http.end();
-        return false;
+        // Set animation based on Home Assistant weather condition
+        if (setAnimationFromHACondition(condition.c_str(), isDaytime)) {
+            // If the weather changed and we're using online animations, refresh them
+            if (_animationMode == ANIMATION_ONLINE && previousWeather != _currentWeather) {
+                WA_SERIAL_PRINTLN("Weather changed, refreshing animations");
+                // Only reload the animation for the current weather to save bandwidth
+                switch(_currentWeather) {
+                    case WEATHER_CLEAR:
+                        fetchAnimationData(CLEAR_SKY_ANIMATION_URL, (uint8_t**)clearSkyFrames, 2, 1024);
+                        break;
+                    case WEATHER_CLOUDY:
+                        fetchAnimationData(CLOUDY_ANIMATION_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
+                        break;
+                    case WEATHER_RAIN:
+                        fetchAnimationData(RAIN_ANIMATION_URL, (uint8_t**)rainFrames, 3, 1024);
+                        break;
+                    case WEATHER_SNOW:
+                        fetchAnimationData(SNOW_ANIMATION_URL, (uint8_t**)snowFrames, 3, 1024);
+                        break;
+                    case WEATHER_STORM:
+                        fetchAnimationData(STORM_ANIMATION_URL, (uint8_t**)stormFrames, 2, 1024);
+                        break;
+                }
+            }
+            
+            http.end();
+            return true;
+        }
     }
+    
+    http.end();
+    return false;
 }
 
 void WeatherAnimations::displayAnimation() {

@@ -1,5 +1,16 @@
 #include "WeatherAnimationsIcons.h"
-#include <HTTPClient.h>
+
+#if !defined(ESP32)
+	#define ESP32
+#endif
+
+#if defined(ESP8266)
+	#include <ESP8266HTTPClient.h>
+	#include <ESP8266WiFi.h>
+#else
+	#include <HTTPClient.h>
+	#include <WiFi.h>
+#endif
 
 // Base URL for weather icons
 const char* WEATHER_ICON_BASE_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/master/production/fill/";
@@ -83,7 +94,7 @@ bool loadWeatherIcon(IconMapping* icon) {
 	
 	// Construct the full URL
 	String fullUrl = String(WEATHER_ICON_BASE_URL) + icon->url;
-	
+
 	HTTPClient http;
 	http.begin(fullUrl);
 	

@@ -42,6 +42,7 @@ const int encoderCLK = 26;   // Encoder clock pin
 const int encoderDT = 25;    // Encoder data pin
 const int backButton = 14;   // Back button
 const int modeButton = 12;   // Mode selection button
+const int animModeButton = 13; // Animation mode selection button
 
 // OLED display settings (using I2C)
 #ifndef CONFIG_EXISTS
@@ -121,6 +122,10 @@ bool displayingDetails = false;
 unsigned long lastUpdateTime = 0;
 const unsigned long updateInterval = 300000; // 5 minutes
 
+// Animation mode flag
+bool onlineAnimationsEnabled = true;
+bool lastAnimModeButtonState = HIGH;
+
 // WeatherAnimations instances for each display
 WeatherAnimations oledWeather(ssid, password, haIP, haToken);
 WeatherAnimations tftWeather(ssid, password, haIP, haToken);
@@ -159,6 +164,7 @@ void setup() {
 	pinMode(encoderDT, INPUT_PULLUP);
 	pinMode(backButton, INPUT_PULLUP);
 	pinMode(modeButton, INPUT_PULLUP);
+	pinMode(animModeButton, INPUT_PULLUP); // Added for animation mode toggle
 	
 	// Initialize OLED display
 	oledWeather.begin(OLED_DISPLAY, OLED_ADDRESS, false); // Don't manage WiFi here
@@ -170,24 +176,35 @@ void setup() {
 	oledWeather.setWeatherEntity(weatherEntity);
 	tftWeather.setWeatherEntity(weatherEntity);
 	
+	// Set animation mode to online by default
+	oledWeather.setAnimationMode(ANIMATION_ONLINE);
+	tftWeather.setAnimationMode(ANIMATION_ONLINE);
+	
+	// Set online animation URLs for basic weather types
+	// URLs for common OLED animations
+	const char* clearSkyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/clear-day.json";
+	const char* cloudyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/cloudy.json";
+	const char* rainURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/rain.json";
+	const char* snowURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/snow.json";
+	const char* stormURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/thunderstorms.json";
+	
+	// Set OLED animation sources for basic weather types
+	oledWeather.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyURL);
+	oledWeather.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
+	oledWeather.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
+	oledWeather.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
+	oledWeather.setOnlineAnimationSource(WEATHER_STORM, stormURL);
+	
 	// Set TFT animation sources - each uses a different animation source
-	tftWeather.setOnlineAnimationSource(WEATHER_CLEAR, true, clearDayURL);
-	tftWeather.setOnlineAnimationSource(WEATHER_CLEAR, false, clearNightURL);
+	tftWeather.setOnlineAnimationSource(WEATHER_CLEAR, clearDayURL);
 	tftWeather.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
-	tftWeather.setOnlineAnimationSource(WEATHER_PARTLYCLOUDY, true, partlyCloudyDayURL);
-	tftWeather.setOnlineAnimationSource(WEATHER_PARTLYCLOUDY, false, partlyCloudyNightURL);
 	tftWeather.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
 	tftWeather.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
-	tftWeather.setOnlineAnimationSource(WEATHER_LIGHTNING, stormURL);
-	tftWeather.setOnlineAnimationSource(WEATHER_FOG, fogURL);
+	tftWeather.setOnlineAnimationSource(WEATHER_STORM, stormURL);
 	
-	// Set animation modes
+	// Set mode to continuous weather display
 	oledWeather.setMode(CONTINUOUS_WEATHER);
 	tftWeather.setMode(CONTINUOUS_WEATHER);
-	
-	// Set refresh intervals
-	oledWeather.setRefreshInterval(5000);  // 5 seconds
-	tftWeather.setRefreshInterval(30000);  // 30 seconds
 	
 	// Set forecast day (0 = today, 1 = tomorrow, etc.)
 	oledWeather.setForecastDay(0);
@@ -271,6 +288,7 @@ void handleButtonPresses() {
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
 	bool modeButtonState = digitalRead(modeButton);
+	bool animModeButtonState = digitalRead(animModeButton);
 	
 	// Handle encoder push button (with simple debounce)
 	if (encoderPushState != lastEncoderPushState && encoderPushState == LOW) {
@@ -309,10 +327,25 @@ void handleButtonPresses() {
 		}
 	}
 	
+	// Handle animation mode button
+	if (animModeButtonState != lastAnimModeButtonState && animModeButtonState == LOW) {
+		// Toggle animation mode
+		onlineAnimationsEnabled = !onlineAnimationsEnabled;
+		
+		// Update animation mode for both displays
+		uint8_t newMode = onlineAnimationsEnabled ? ANIMATION_ONLINE : ANIMATION_STATIC;
+		oledWeather.setAnimationMode(newMode);
+		tftWeather.setAnimationMode(newMode);
+		
+		Serial.print("Animation mode changed to: ");
+		Serial.println(onlineAnimationsEnabled ? "Online/Animated" : "Static");
+	}
+	
 	// Update button states
 	lastEncoderPushState = encoderPushState;
 	lastBackButtonState = backButtonState;
 	lastModeButtonState = modeButtonState;
+	lastAnimModeButtonState = animModeButtonState;
 }
 
 void updateDisplays() {
