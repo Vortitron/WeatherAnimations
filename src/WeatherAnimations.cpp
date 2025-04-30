@@ -163,6 +163,8 @@ bool WeatherAnimations::connectToWiFi() {
     if (!_manageWiFi) {
         return WiFi.status() == WL_CONNECTED;
     }
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
     WiFi.begin(_ssid, _password);
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 10) {
