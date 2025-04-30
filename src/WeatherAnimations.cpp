@@ -83,6 +83,12 @@ void WeatherAnimations::begin(uint8_t displayType, uint8_t i2cAddr, bool manageW
     } else if (!_manageWiFi) {
         WA_SERIAL_PRINTLN("Wi-Fi management disabled, assuming connection is handled externally.");
     }
+    
+    // If we're using online animations and we're connected to Wi-Fi, preload the icons
+    if (_animationMode == ANIMATION_ONLINE && WiFi.status() == WL_CONNECTED) {
+        WA_SERIAL_PRINTLN("Preloading weather icons...");
+        preloadWeatherIcons();
+    }
 }
 
 void WeatherAnimations::setMode(uint8_t mode) {
@@ -645,16 +651,37 @@ bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool 
         weatherCode = WEATHER_CLOUDY;
     }
     
-    // For OLED display, set animation directly using bitmap data
+    // For OLED display, use embedded animations
     if (_displayType == OLED_DISPLAY) {
-        setAnimation(weatherCode, icon->frames, icon->frameCount, 500); // 500ms delay between frames
+        switch (weatherCode) {
+            case WEATHER_CLEAR:
+                setAnimation(weatherCode, clearSkyFrames, 2, 500);
+                break;
+            case WEATHER_CLOUDY:
+                setAnimation(weatherCode, cloudySkyFrames, 2, 500);
+                break;
+            case WEATHER_RAIN:
+                setAnimation(weatherCode, rainFrames, 3, 300);
+                break;
+            case WEATHER_SNOW:
+                setAnimation(weatherCode, snowFrames, 3, 300);
+                break;
+            case WEATHER_STORM:
+                setAnimation(weatherCode, stormFrames, 2, 200);
+                break;
+        }
     }
     
-    // For TFT display, set URL to fetch the icon online
-    if (_displayType == TFT_DISPLAY) {
-        // Generate URL based on the condition and variant
+    // For TFT display or if using online animation mode, set URL to fetch the icon online
+    if (_displayType == TFT_DISPLAY || _animationMode == ANIMATION_ONLINE) {
+        // Load the icon if not already loaded
+        if (!icon->isLoaded) {
+            loadWeatherIcon((IconMapping*)icon);
+        }
+        
+        // Generate URL based on the condition and variant for online animations
         char url[150];
-        sprintf(url, "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/%s%s%s.png", 
+        sprintf(url, "https://raw.githubusercontent.com/basmilius/weather-icons/master/production/fill/%s%s%s.png", 
                 condition,
                 (icon->variant[0] != '\0' ? "-" : ""),
                 icon->variant);
@@ -898,6 +925,37 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
         }
     }
     #endif
+}
+
+WeatherAnimations::~WeatherAnimations() {
+    // Clean up display objects
+    if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
+        delete oledDisplay;
+        oledDisplay = nullptr;
+    }
+    #if defined(ESP8266) || defined(ESP32)
+    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+        delete tftDisplay;
+        tftDisplay = nullptr;
+    }
+    #endif
+    
+    // Clean up online animation cache
+    for (int i = 0; i < 5; i++) {
+        if (_onlineAnimationCache[i].imageData != nullptr) {
+            free(_onlineAnimationCache[i].imageData);
+            _onlineAnimationCache[i].imageData = nullptr;
+        }
+        for (int j = 0; j < _onlineAnimationCache[i].frameCount && j < 10; j++) {
+            if (_onlineAnimationCache[i].frameData[j] != nullptr) {
+                free(_onlineAnimationCache[i].frameData[j]);
+                _onlineAnimationCache[i].frameData[j] = nullptr;
+            }
+        }
+    }
+    
+    // Clean up icon data
+    clearWeatherIcons();
 }
 
  

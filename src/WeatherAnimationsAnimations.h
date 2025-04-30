@@ -34,9 +34,4 @@ extern const uint8_t stormFrame1[1024] PROGMEM;
 extern const uint8_t stormFrame2[1024] PROGMEM;
 extern const uint8_t* stormFrames[2];
 
-
-// Import icon mapping from WeatherAnimationsIcons.h
-extern const IconMapping weatherIcons[];
-extern const IconMapping* findWeatherIcon(const char* condition, bool isDay);
-
 #endif // WEATHER_ANIMATIONS_ANIMATIONS_H 

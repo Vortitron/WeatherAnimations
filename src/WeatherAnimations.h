@@ -1,4 +1,3 @@
-
 #ifndef WEATHER_ANIMATIONS_H
 #define WEATHER_ANIMATIONS_H
 
@@ -69,6 +68,9 @@
 public:
     // Constructor with Wi-Fi and Home Assistant credentials
     WeatherAnimations(const char* ssid, const char* password, const char* haIP, const char* haToken);
+    
+    // Destructor to clean up resources
+    ~WeatherAnimations();
     
     // Initialize the library and connect to Wi-Fi and display
     void begin(uint8_t displayType = OLED_DISPLAY, uint8_t i2cAddr = 0x3C, bool manageWiFi = true);
