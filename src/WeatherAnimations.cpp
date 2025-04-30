@@ -1,6 +1,11 @@
 #include "WeatherAnimations.h"
-#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#if defined(ESP8266) || defined(ESP32)
+#include <WiFiClient.h>
+#include <HTTPClient.h>
+#endif
 #include "WeatherAnimationsAnimations.h"
+#include <Adafruit_SSD1306.h>
 
 // Default OLED dimensions
 #define SCREEN_WIDTH 128
@@ -40,7 +45,7 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
     }
     // Set default animations for OLED (monochrome)
     setAnimation(WEATHER_CLEAR, clearSkyFrames, 2, 500);
-    setAnimation(WEATHER_CLOUDY, cloudyFrames, 2, 500);
+    setAnimation(WEATHER_CLOUDY, cloudySkyFrames, 2, 500);
     setAnimation(WEATHER_RAIN, rainFrames, 3, 300);
     setAnimation(WEATHER_SNOW, snowFrames, 3, 300);
     setAnimation(WEATHER_STORM, stormFrames, 2, 200);
@@ -164,9 +169,9 @@ bool WeatherAnimations::fetchWeatherData() {
         bool isDaytime = true;
         
         // Extract condition from JSON (simplistic parsing)
-        int stateStart = payload.indexOf(""state":"") + 9;
+        int stateStart = payload.indexOf("\"state\":\"") + 9;
         if (stateStart > 9) {
-            int stateEnd = payload.indexOf("",", stateStart);
+            int stateEnd = payload.indexOf("\",", stateStart);
             if (stateEnd > stateStart) {
                 condition = payload.substring(stateStart, stateEnd);
             }
@@ -174,7 +179,7 @@ bool WeatherAnimations::fetchWeatherData() {
         
         // Check for daytime attribute (if available)
         bool isDayFound = false;
-        int isDayStart = payload.indexOf(""is_daytime":") + 13;
+        int isDayStart = payload.indexOf("\"is_daytime\":") + 13;
         if (isDayStart > 13) {
             // Could be true or false
             if (payload.substring(isDayStart, isDayStart + 4) == "true") {
@@ -586,7 +591,18 @@ void WeatherAnimations::initDisplay() {
             delete oledDisplay;
             oledDisplay = nullptr;
         }
-
+    } else if (_displayType == TFT_DISPLAY) {
+        #if defined(ESP8266) || defined(ESP32)
+        tftDisplay = new TFT_eSPI();
+        tftDisplay->init();
+        tftDisplay->fillScreen(TFT_BLACK);
+        tftDisplay->setRotation(0);
+        Serial.println("TFT display initialized.");
+        #else
+        Serial.println("TFT display not supported on this platform.");
+        #endif
+    }
+}
 
 bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool isDaytime) {
     // Find the appropriate icon based on condition and time of day
@@ -637,315 +653,6 @@ bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool 
     return true;
 }
 
-
-
-bool WeatherAnimations::fetchWeatherData() {
-    if (WiFi.status() != WL_CONNECTED) {
-        if (_manageWiFi) {
-            connectToWiFi();
-        }
-        if (WiFi.status() != WL_CONNECTED) {
-            Serial.println("No Wi-Fi connection available.");
-            return false;
-        }
-    }
-    
-    HTTPClient http;
-    String url = String("http://") + _haIP + ":8123/api/states/" + _weatherEntityID;
-    http.begin(url);
-    http.addHeader("Authorization", String("Bearer ") + _haToken);
-    int httpCode = http.GET();
-    
-    if (httpCode == 200) {
-        String payload = http.getString();
-        Serial.println("Home Assistant Response:");
-        Serial.println(payload);
-        
-        // Parse JSON (extended parsing)
-        String condition = "";
-        bool isDaytime = true;
-        
-        // Extract condition from JSON (simplistic parsing)
-        int stateStart = payload.indexOf(""state":"") + 9;
-        if (stateStart > 9) {
-            int stateEnd = payload.indexOf("",", stateStart);
-            if (stateEnd > stateStart) {
-                condition = payload.substring(stateStart, stateEnd);
-            }
-        }
-        
-        // Check for daytime attribute (if available)
-        bool isDayFound = false;
-        int isDayStart = payload.indexOf(""is_daytime":") + 13;
-        if (isDayStart > 13) {
-            // Could be true or false
-            if (payload.substring(isDayStart, isDayStart + 4) == "true") {
-                isDaytime = true;
-                isDayFound = true;
-            } else if (payload.substring(isDayStart, isDayStart + 5) == "false") {
-                isDaytime = false;
-                isDayFound = true;
-            }
-        }
-        
-        // If no daytime attribute, guess based on time
-        if (!isDayFound) {
-            // Simple heuristic: 6 AM to 6 PM is daytime
-            time_t now;
-            time(&now);
-            struct tm *timeinfo = localtime(&now);
-            isDaytime = (timeinfo->tm_hour >= 6 && timeinfo->tm_hour < 18);
-        }
-        
-        // If condition is empty or invalid, try to detect from payload text
-        if (condition.length() == 0) {
-            if (payload.indexOf("clear") != -1 || payload.indexOf("sunny") != -1) {
-                condition = payload.indexOf("night") != -1 ? "clear-night" : "sunny";
-            } else if (payload.indexOf("cloud") != -1) {
-                condition = payload.indexOf("partly") != -1 ? "partlycloudy" : "cloudy";
-            } else if (payload.indexOf("fog") != -1) {
-                condition = "fog";
-            } else if (payload.indexOf("hail") != -1) {
-                condition = "hail";
-            } else if (payload.indexOf("lightning") != -1 || payload.indexOf("thunder") != -1) {
-                condition = payload.indexOf("rain") != -1 ? "lightning-rainy" : "lightning";
-            } else if (payload.indexOf("pouring") != -1) {
-                condition = "pouring";
-            } else if (payload.indexOf("rain") != -1 || payload.indexOf("drizzle") != -1) {
-                condition = "rainy";
-            } else if (payload.indexOf("snow") != -1) {
-                condition = payload.indexOf("rain") != -1 ? "snowy-rainy" : "snowy";
-            } else if (payload.indexOf("wind") != -1) {
-                condition = payload.indexOf("extreme") != -1 ? "windy-variant" : "windy";
-            } else {
-                condition = "cloudy"; // Default
-            }
-        }
-        
-        Serial.print("Detected weather condition: ");
-        Serial.println(condition);
-        Serial.print("Is daytime: ");
-        Serial.println(isDaytime ? "Yes" : "No");
-        
-        // Set animation based on the parsed condition
-        setAnimationFromHACondition(condition.c_str(), isDaytime);
-        
-        http.end();
-        return true;
-    } else {
-        Serial.print("HTTP Error: ");
-        Serial.println(httpCode);
-        http.end();
-        return false;
-    }
-}
-
-    
-    uint8_t weatherCode;
-    
-    // Map condition to weather code used in the library
-    if (strcmp(condition, "clear-night") == 0 || strcmp(condition, "sunny") == 0) {
-        weatherCode = WEATHER_CLEAR;
-     else if (strcmp(condition, "cloudy") == 0 || strcmp(condition, "partlycloudy") == 0) {
-        weatherCode = WEATHER_CLOUDY;
-     else if (strcmp(condition, "rainy") == 0 || strcmp(condition, "pouring") == 0) {
-        weatherCode = WEATHER_RAIN;
-     else if (strcmp(condition, "snowy") == 0 || strcmp(condition, "snowy-rainy") == 0) {
-        weatherCode = WEATHER_SNOW;
-     else if (strcmp(condition, "lightning") == 0 || strcmp(condition, "lightning-rainy") == 0) {
-        weatherCode = WEATHER_STORM;
-     else {
-        // Default fallback
-        weatherCode = WEATHER_CLOUDY;
-    
-    
-    // For OLED display, set animation directly using bitmap data
-    if (_displayType == OLED_DISPLAY) {
-        setAnimation(weatherCode, icon->frames, icon->frameCount, 500); // 500ms delay between frames
-    
-    
-    // For TFT display, set URL to fetch the icon online
-    if (_displayType == TFT_DISPLAY) {
-        // Generate URL based on the condition and variant
-        char url[150];
-        sprintf(url, "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/%s%s%s.png", 
-                condition,
-                (icon->variant[0] != '\0' ? "-" : ""),
-                icon->variant);
-        
-        setOnlineAnimationSource(weatherCode, url);
-    
-    
-    // Update current weather
-    _currentWeather = weatherCode;
-    
-    return true;
-
-
-
-
-bool WeatherAnimations::fetchWeatherData() {
-    if (WiFi.status() != WL_CONNECTED) {
-        if (_manageWiFi) {
-            connectToWiFi();
-        
-        if (WiFi.status() != WL_CONNECTED) {
-            Serial.println("No Wi-Fi connection available.");
-            return false;
-        
-    
-    
-    HTTPClient http;
-    String url = String("http://") + _haIP + ":8123/api/states/" + _weatherEntityID;
-    http.begin(url);
-    http.addHeader("Authorization", String("Bearer ") + _haToken);
-    int httpCode = http.GET();
-    
-    if (httpCode == 200) {
-        String payload = http.getString();
-        Serial.println("Home Assistant Response:");
-        Serial.println(payload);
-        
-        // Parse JSON (extended parsing)
-        String condition = "";
-        bool isDaytime = true;
-        
-        // Extract condition from JSON (simplistic parsing)
-        int stateStart = payload.indexOf(""state":"") + 9;
-        if (stateStart > 9) {
-            int stateEnd = payload.indexOf("",", stateStart);
-            if (stateEnd > stateStart) {
-                condition = payload.substring(stateStart, stateEnd);
-            
-        
-        
-        // Check for daytime attribute (if available)
-        bool isDayFound = false;
-        int isDayStart = payload.indexOf(""is_daytime":") + 13;
-        if (isDayStart > 13) {
-            // Could be true or false
-            if (payload.substring(isDayStart, isDayStart + 4) == "true") {
-                isDaytime = true;
-                isDayFound = true;
-             else if (payload.substring(isDayStart, isDayStart + 5) == "false") {
-                isDaytime = false;
-                isDayFound = true;
-            
-        
-        
-        // If no daytime attribute, guess based on time
-        if (!isDayFound) {
-            // Simple heuristic: 6 AM to 6 PM is daytime
-            time_t now;
-            time(&now);
-            struct tm *timeinfo = localtime(&now);
-            isDaytime = (timeinfo->tm_hour >= 6 && timeinfo->tm_hour < 18);
-        
-        
-        // If condition is empty or invalid, try to detect from payload text
-        if (condition.length() == 0) {
-            if (payload.indexOf("clear") != -1 || payload.indexOf("sunny") != -1) {
-                condition = payload.indexOf("night") != -1 ? "clear-night" : "sunny";
-             else if (payload.indexOf("cloud") != -1) {
-                condition = payload.indexOf("partly") != -1 ? "partlycloudy" : "cloudy";
-             else if (payload.indexOf("fog") != -1) {
-                condition = "fog";
-             else if (payload.indexOf("hail") != -1) {
-                condition = "hail";
-             else if (payload.indexOf("lightning") != -1 || payload.indexOf("thunder") != -1) {
-                condition = payload.indexOf("rain") != -1 ? "lightning-rainy" : "lightning";
-             else if (payload.indexOf("pouring") != -1) {
-                condition = "pouring";
-             else if (payload.indexOf("rain") != -1 || payload.indexOf("drizzle") != -1) {
-                condition = "rainy";
-             else if (payload.indexOf("snow") != -1) {
-                condition = payload.indexOf("rain") != -1 ? "snowy-rainy" : "snowy";
-             else if (payload.indexOf("wind") != -1) {
-                condition = payload.indexOf("extreme") != -1 ? "windy-variant" : "windy";
-             else {
-                condition = "cloudy"; // Default
-            
-        
-        
-        Serial.print("Detected weather condition: ");
-        Serial.println(condition);
-        Serial.print("Is daytime: ");
-        Serial.println(isDaytime ? "Yes" : "No");
-        
-        // Set animation based on the parsed condition
-        setAnimationFromHACondition(condition.c_str(), isDaytime);
-        
-        http.end();
-        return true;
-     else {
-        Serial.print("HTTP Error: ");
-        Serial.println(httpCode);
-        http.end();
-        return false;
-    
-
- else if (_displayType == TFT_DISPLAY) {
-        #if defined(ESP8266) || defined(ESP32)
-        tftDisplay = new TFT_eSPI();
-        tftDisplay->init();
-        tftDisplay->fillScreen(TFT_BLACK);
-        tftDisplay->setRotation(0);
-        Serial.println("TFT display initialized.");
-        #else
-        Serial.println("TFT display not supported on this platform.");
-        #endif
-    
-
-
-bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool isDaytime) {
-    // Find the appropriate icon based on condition and time of day
-    const IconMapping* icon = findWeatherIcon(condition, isDaytime);
-    if (icon == nullptr) {
-        Serial.println("Warning: Could not find icon for condition");
-        return false;
-    
-    
-    uint8_t weatherCode;
-    
-    // Map condition to weather code used in the library
-    if (strcmp(condition, "clear-night") == 0 || strcmp(condition, "sunny") == 0) {
-        weatherCode = WEATHER_CLEAR;
-     else if (strcmp(condition, "cloudy") == 0 || strcmp(condition, "partlycloudy") == 0) {
-        weatherCode = WEATHER_CLOUDY;
-     else if (strcmp(condition, "rainy") == 0 || strcmp(condition, "pouring") == 0) {
-        weatherCode = WEATHER_RAIN;
-     else if (strcmp(condition, "snowy") == 0 || strcmp(condition, "snowy-rainy") == 0) {
-        weatherCode = WEATHER_SNOW;
-     else if (strcmp(condition, "lightning") == 0 || strcmp(condition, "lightning-rainy") == 0) {
-        weatherCode = WEATHER_STORM;
-     else {
-        // Default fallback
-        weatherCode = WEATHER_CLOUDY;
-    
-    
-    // For OLED display, set animation directly using bitmap data
-    if (_displayType == OLED_DISPLAY) {
-        setAnimation(weatherCode, icon->frames, icon->frameCount, 500); // 500ms delay between frames
-    
-    
-    // For TFT display, set URL to fetch the icon online
-    if (_displayType == TFT_DISPLAY) {
-        // Generate URL based on the condition and variant
-        char url[150];
-        sprintf(url, "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft/%s%s%s.png", 
-                condition,
-                (icon->variant[0] != '\0' ? "-" : ""),
-                icon->variant);
-        
-        setOnlineAnimationSource(weatherCode, url);
-    
-    
-    // Update current weather
-    _currentWeather = weatherCode;
-    
-    return true;
-
-
 // New method: Run a transition animation between screens
 bool WeatherAnimations::runTransition(uint8_t weatherCondition, uint8_t direction, uint16_t duration) {
     // If already transitioning, check if it's complete
@@ -955,7 +662,7 @@ bool WeatherAnimations::runTransition(uint8_t weatherCondition, uint8_t directio
         
         // Return true if transition is complete
         return !_isTransitioning;
-    
+    }
     
     // Start a new transition
     _currentWeather = weatherCondition;
@@ -969,7 +676,7 @@ bool WeatherAnimations::runTransition(uint8_t weatherCondition, uint8_t directio
     
     // Return false since the transition just started
     return false;
-
+}
 
 // New method: Display a single frame of the transition animation
 void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float progress) {
@@ -1021,15 +728,11 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                         int16_t barHeight = max(1, (int16_t)(2 * (1.0f - progress)));
                         if (i % 4 < barHeight) {
                             oledDisplay->fillRect(0, i, width, 1, BLACK);
-                        
-                    
-                    oledDisplay->display();
-                    return;
-            
-            
-            // Draw the bitmap at the calculated position
-            oledDisplay->drawBitmap(x, y, frameData, width, height, WHITE);
-         else {
+                        }
+                    }
+                }
+            }
+        } else {
             // Default text display if no animation is set
             oledDisplay->setTextSize(1);
             oledDisplay->setTextColor(WHITE);
@@ -1041,11 +744,10 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                 case WEATHER_SNOW:    oledDisplay->println("Snowy"); break;
                 case WEATHER_STORM:   oledDisplay->println("Stormy"); break;
                 default:              oledDisplay->println("Unknown");
-            
-        
-        
+            }
+        }
         oledDisplay->display();
-     else if (_displayType == TFT_DISPLAY) {
+    } else if (_displayType == TFT_DISPLAY) {
         #if defined(ESP8266) || defined(ESP32)
         if (tftDisplay != nullptr) {
             // For TFT display, we'll implement a simple transition
@@ -1054,7 +756,7 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
             // Clear the display on the first frame
             if (progress == 0.0f) {
                 tftDisplay->fillScreen(TFT_BLACK);
-            
+            }
             
             // Get display dimensions
             int16_t width = TFT_WIDTH;
@@ -1106,9 +808,9 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                         // Add cases for other weather conditions
                         default:
                             tftDisplay->println("Weather");
-                    
-                    return;
-            
+                    }
+                }
+            }
             
             // Try to use online animation if available
             if (_onlineAnimationURLs[weatherCondition] != nullptr && 
@@ -1137,7 +839,7 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                         tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
                         for (int i = 0; i < 10; i++) {
                             tftDisplay->drawLine(x + 90 + i*10, y + 170, x + 90 + i*10 + 5, y + 190, TFT_BLUE);
-                        
+                        }
                         break;
                     case WEATHER_SNOW:
                         tftDisplay->println("Snowy");
@@ -1147,7 +849,7 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                             tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180, TFT_WHITE);
                             tftDisplay->drawPixel(x + 90 + i*10, y + 180 + 1, TFT_WHITE);
                             tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180 + 1, TFT_WHITE);
-                        
+                        }
                         break;
                     case WEATHER_STORM:
                         tftDisplay->println("Stormy");
@@ -1156,8 +858,8 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                         break;
                     default:
                         tftDisplay->println("Unknown");
-                
-             else {
+                }
+            } else {
                 // Fallback to basic display with transition
                 tftDisplay->fillScreen(TFT_BLACK);
                 tftDisplay->setCursor(x + 10, y + 10);
@@ -1172,11 +874,11 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                     // Add cases for other weather types (same as above)
                     default:
                         tftDisplay->println("Weather");
-                
-            
-        
+                }
+            }
+        }
         #endif
-    
-
+    }
+}
 
  

@@ -97,7 +97,7 @@ const uint8_t* clearSkyFrames[2] = {clearSkyFrame1, clearSkyFrame2};
 // Cloudy Animation (2 frames)
 const uint8_t cloudyFrame1[1024] PROGMEM = {0}; // Placeholder
 const uint8_t cloudyFrame2[1024] PROGMEM = {0}; // Placeholder
-const uint8_t* cloudyFrames[2] = {cloudyFrame1, cloudyFrame2};
+const uint8_t* cloudySkyFrames[2] = {cloudyFrame1, cloudyFrame2};
 
 // Rain Animation (3 frames)
 const uint8_t rainFrame1[1024] PROGMEM = {0}; // Placeholder

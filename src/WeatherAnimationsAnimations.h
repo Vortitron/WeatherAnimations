@@ -15,7 +15,7 @@ extern const uint8_t* clearSkyFrames[2];
 // Cloudy Animation (2 frames)
 extern const uint8_t cloudyFrame1[1024] PROGMEM;
 extern const uint8_t cloudyFrame2[1024] PROGMEM;
-extern const uint8_t* cloudyFrames[2];
+extern const uint8_t* cloudySkyFrames[2];
 
 // Rain Animation (3 frames)
 extern const uint8_t rainFrame1[1024] PROGMEM;
