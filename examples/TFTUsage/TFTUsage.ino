@@ -1,8 +1,10 @@
 /*
- * Basic OLED Usage Example for WeatherAnimations Library
+ * TFT Display Usage Example for WeatherAnimations Library
  * 
  * This example demonstrates how to initialize the WeatherAnimations library,
- * connect to Home Assistant, and display weather animations on an OLED display.
+ * connect to Home Assistant, and display weather animations on a TFT display.
+ * 
+ * It utilizes online animation sources (GIFs or JPGs) for better visual quality.
  */
 
 #include <WeatherAnimations.h>
@@ -42,20 +44,42 @@ const char* weatherEntity = "weather.forecast_home";
 // Create WeatherAnimations instance
 WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
 
+// Online animation sources (URLs to animation or image files)
+// Replace these with the actual URLs to your animations
+const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
+const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
+
 void setup() {
 	// Initialize serial for debugging (if available on your board)
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 	Serial.begin(115200);
-	Serial.println("Starting WeatherAnimations OLED example");
+	Serial.println("Starting WeatherAnimations TFT example");
 	#endif
 	
 	// Initialize button pins
 	pinMode(encoderPUSH, INPUT_PULLUP);
 	pinMode(backButton, INPUT_PULLUP);
 	
-	// Initialize the library with OLED display
-	// Parameters: display type, I2C address (typically 0x3C or 0x3D), manage WiFi connection
-	weatherAnim.begin(OLED_DISPLAY, 0x3C, true);
+	// Initialize the library with TFT display
+	// Parameters: display type, CS pin (or 0 for default), manage WiFi connection
+	weatherAnim.begin(TFT_DISPLAY, 0, true);
+	
+	// Set online animation sources for TFT display
+	// You can set different animations for different times of day
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, true, clearSkyDayURL);   // Day version
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, false, clearSkyNightURL); // Night version
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_POURING, heavyRainURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_LIGHTNING, stormURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_LIGHTNING_RAINY, stormRainURL);
 	
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
@@ -63,6 +87,9 @@ void setup() {
 	// Set mode to continuous weather display
 	// Options: CONTINUOUS_WEATHER or SIMPLE_TRANSITION
 	weatherAnim.setMode(CONTINUOUS_WEATHER);
+	
+	// Set refresh interval for animations (in milliseconds)
+	weatherAnim.setRefreshInterval(30000); // 30 seconds
 	
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 	Serial.println("Setup complete, starting weather updates...");
