@@ -181,12 +181,12 @@ void setup() {
 	tftWeather.setAnimationMode(ANIMATION_ONLINE);
 	
 	// Set online animation URLs for basic weather types
-	// URLs for common OLED animations
-	const char* clearSkyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/clear-day.json";
-	const char* cloudyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/cloudy.json";
-	const char* rainURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/rain.json";
-	const char* snowURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/snow.json";
-	const char* stormURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/thunderstorms.json";
+	// URLs for OLED animations (frame-based PNG files)
+	const char* clearSkyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
 	
 	// Set OLED animation sources for basic weather types
 	oledWeather.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyURL);
@@ -195,7 +195,7 @@ void setup() {
 	oledWeather.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
 	oledWeather.setOnlineAnimationSource(WEATHER_STORM, stormURL);
 	
-	// Set TFT animation sources - each uses a different animation source
+	// Set TFT animation sources - using GIFs directly from our JSON file
 	tftWeather.setOnlineAnimationSource(WEATHER_CLEAR, clearDayURL);
 	tftWeather.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
 	tftWeather.setOnlineAnimationSource(WEATHER_RAIN, rainURL);

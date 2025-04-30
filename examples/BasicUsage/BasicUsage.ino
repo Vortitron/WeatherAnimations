@@ -122,13 +122,13 @@ void setup() {
 	// Can be toggled with left button
 	weatherAnim.setAnimationMode(ANIMATION_STATIC);
 	
-	// Set URLs for online animations (used when in ANIMATION_ONLINE mode)
-	// These URLs should point to valid animation data in the expected format
-	const char* clearSkyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/clear-day.json";
-	const char* cloudyURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/cloudy.json";
-	const char* rainURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/rain.json";
-	const char* snowURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/snow.json";
-	const char* stormURL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/thunderstorms.json";
+	// Set base URLs for online animations (used when in ANIMATION_ONLINE mode)
+	// These URLs point to the base paths of our animation frames
+	const char* clearSkyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
 	
 	// Set online animation sources
 	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyURL);

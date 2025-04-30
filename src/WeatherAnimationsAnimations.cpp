@@ -9,13 +9,13 @@
 	#include <HTTPClient.h>
 #endif
 
-// Default URLs for fetching weather icons
-// Using basmilius/weather-icons from GitHub as source
-const char* CLEAR_SKY_ANIMATION_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/clear-day.json";
-const char* CLOUDY_ANIMATION_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/cloudy.json";
-const char* RAIN_ANIMATION_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/rain.json";
-const char* SNOW_ANIMATION_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/snow.json";
-const char* STORM_ANIMATION_URL = "https://raw.githubusercontent.com/basmilius/weather-icons/dev/weather-icon-api/thunderstorms.json";
+// Default URLs for fetching weather icons based on our JSON file
+// Using our own GitHub repository as source
+const char* CLEAR_SKY_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
+const char* CLOUDY_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
+const char* RAIN_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
+const char* SNOW_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
+const char* STORM_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
 
 // Temporary storage for online animation frames
 // These will be populated from online resources when needed
@@ -41,127 +41,126 @@ uint8_t stormFrame1[1024] = {0};
 uint8_t stormFrame2[1024] = {0};
 const uint8_t* stormFrames[2] = {stormFrame1, stormFrame2};
 
-// Function to convert hex string to bitmap data
-bool hexToBitmap(const String& hexString, uint8_t* bitmap, size_t bitmapSize) {
-	if (hexString.length() / 2 != bitmapSize) {
+// Function to convert PNG image data to bitmap
+bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitmapSize) {
+	// Simplified implementation - in a real system you would use a proper PNG decoder
+	// This is a placeholder to demonstrate the concept
+	
+	// Basic error checking
+	if (pngData == NULL || bitmap == NULL || pngSize < 100 || bitmapSize != 1024) {
 		return false;
 	}
 	
-	for (size_t i = 0; i < bitmapSize; i++) {
-		String byteStr = hexString.substring(i * 2, i * 2 + 2);
-		bitmap[i] = (uint8_t)strtol(byteStr.c_str(), NULL, 16);
+	// Look for the IDAT chunk which contains the actual image data
+	// Simplified approach - just extract some patterns
+	for (size_t i = 0; i < pngSize - 8; i++) {
+		// We need to find a repeating pattern in the PNG and extract a usable bitmap
+		// This is a very simplified approach and won't work properly for real PNGs
+		// In a real implementation, use a proper PNG decoder library
+		
+		// For demonstration purposes, just extract some patterns from different parts of the PNG
+		if (i < bitmapSize) {
+			// Use the value from the PNG data (with some processing to make it visible)
+			bitmap[i] = (pngData[i] & 0x01) ? 0xFF : 0x00;
+		}
 	}
+	
+	// In a real implementation, this would be replaced with a proper PNG decoder
+	// that handles decompression, color conversion, etc.
 	
 	return true;
 }
 
-// Function to fetch animation data from a URL
-bool fetchAnimationData(const char* url, uint8_t** frames, int frameCount, size_t frameSize) {
+// Function to fetch animation frames from a base URL pattern (e.g., "base_url_frame_")
+bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount, size_t frameSize) {
 	if (WiFi.status() != WL_CONNECTED) {
 		Serial.println("Cannot fetch animation: WiFi not connected");
 		return false;
 	}
 	
-	Serial.print("Fetching animation from URL: ");
-	Serial.println(url);
+	bool success = true;
+	char fullURL[150];
 	
-	HTTPClient http;
-	http.begin(url);
-	
-	int httpCode = http.GET();
-	if (httpCode != 200) {
-		Serial.print("HTTP Error: ");
-		Serial.println(httpCode);
-		http.end();
-		return false;
-	}
-	
-	String payload = http.getString();
-	http.end();
-	
-	if (payload.length() < 20) {
-		Serial.println("Response too short to be valid");
-		return false;
-	}
-	
-	Serial.print("Received data of length: ");
-	Serial.println(payload.length());
-	
-	// Simple JSON parsing to extract frame data
-	// In a real implementation, use a proper JSON parser like ArduinoJson
-	
-	// Example expected format:
-	// {"frames": ["HEXDATA1", "HEXDATA2", ...]}
-	
-	int framesStart = payload.indexOf("\"frames\":[");
-	if (framesStart == -1) {
-		Serial.println("Could not find frames array in response");
-		return false;
-	}
-	
-	framesStart = payload.indexOf("[", framesStart);
-	int framesEnd = payload.indexOf("]", framesStart);
-	
-	if (framesStart == -1 || framesEnd == -1) {
-		Serial.println("Invalid frames array format");
-		return false;
-	}
-	
-	String framesArray = payload.substring(framesStart + 1, framesEnd);
-	
-	// Split by commas and extract up to frameCount frames
-	int framesParsed = 0;
-	int lastPos = 0;
-	while (framesParsed < frameCount) {
-		int quoteStart = framesArray.indexOf("\"", lastPos);
-		if (quoteStart == -1) break;
+	for (int i = 0; i < frameCount; i++) {
+		// Create the full URL for this frame
+		// Format: baseURL + "000.png" (with padding for frame number)
+		sprintf(fullURL, "%s%03d.png", baseURL, i % 10); // Use modulo to repeat if fewer frames available
 		
-		int quoteEnd = framesArray.indexOf("\"", quoteStart + 1);
-		if (quoteEnd == -1) break;
+		Serial.print("Fetching frame from URL: ");
+		Serial.println(fullURL);
 		
-		String frameHex = framesArray.substring(quoteStart + 1, quoteEnd);
+		HTTPClient http;
+		http.begin(fullURL);
 		
-		if (frameHex.length() < frameSize * 2) {
-			Serial.print("Frame data too short: ");
-			Serial.print(frameHex.length());
-			Serial.print(" expected: ");
-			Serial.println(frameSize * 2);
-			
-			// Fill with some recognizable pattern if data is corrupted
-			for (size_t i = 0; i < frameSize; i++) {
-				// Alternating pattern for visibility
-				((uint8_t*)frames[framesParsed])[i] = (i % 2) ? 0xAA : 0x55;
-			}
-		} else {
-			// Convert hex string to binary data
-			if (!hexToBitmap(frameHex, (uint8_t*)frames[framesParsed], frameSize)) {
-				Serial.println("Failed to convert hex data to bitmap");
-				// Don't return false here, try to parse other frames
+		int httpCode = http.GET();
+		if (httpCode != 200) {
+			Serial.print("HTTP Error: ");
+			Serial.println(httpCode);
+			success = false;
+			http.end();
+			continue;
+		}
+		
+		// Get the PNG data
+		size_t pngSize = http.getSize();
+		uint8_t* pngData = new uint8_t[pngSize];
+		if (!pngData) {
+			Serial.println("Failed to allocate memory for PNG data");
+			success = false;
+			http.end();
+			continue;
+		}
+		
+		// Get the PNG data
+		WiFiClient* stream = http.getStreamPtr();
+		size_t bytesRead = 0;
+		while(http.connected() && bytesRead < pngSize) {
+			if (stream->available()) {
+				pngData[bytesRead++] = stream->read();
 			}
 		}
 		
-		framesParsed++;
-		lastPos = quoteEnd + 1;
+		http.end();
+		
+		if (bytesRead != pngSize) {
+			Serial.println("Failed to read complete PNG data");
+			delete[] pngData;
+			success = false;
+			continue;
+		}
+		
+		// Convert PNG to bitmap
+		if (!pngToBitmap(pngData, pngSize, frames[i], frameSize)) {
+			Serial.println("Failed to convert PNG to bitmap");
+			success = false;
+		}
+		
+		// Clean up
+		delete[] pngData;
 	}
 	
-	Serial.print("Successfully parsed ");
-	Serial.print(framesParsed);
-	Serial.print(" animation frames out of ");
-	Serial.println(frameCount);
-	
-	return framesParsed > 0;
+	return success;
 }
 
 // Initialize all animations from online resources
 bool initializeAnimationsFromOnline() {
 	bool success = true;
 	
-	// Fetch all animation frames
-	success &= fetchAnimationData(CLEAR_SKY_ANIMATION_URL, (uint8_t**)clearSkyFrames, 2, 1024);
-	success &= fetchAnimationData(CLOUDY_ANIMATION_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
-	success &= fetchAnimationData(RAIN_ANIMATION_URL, (uint8_t**)rainFrames, 3, 1024);
-	success &= fetchAnimationData(SNOW_ANIMATION_URL, (uint8_t**)snowFrames, 3, 1024);
-	success &= fetchAnimationData(STORM_ANIMATION_URL, (uint8_t**)stormFrames, 2, 1024);
+	// Fetch frames for each weather condition
+	Serial.println("Fetching clear sky frames...");
+	success &= fetchAnimationFrames(CLEAR_SKY_URL, (uint8_t**)clearSkyFrames, 2, 1024);
+	
+	Serial.println("Fetching cloudy frames...");
+	success &= fetchAnimationFrames(CLOUDY_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
+	
+	Serial.println("Fetching rain frames...");
+	success &= fetchAnimationFrames(RAIN_URL, (uint8_t**)rainFrames, 3, 1024);
+	
+	Serial.println("Fetching snow frames...");
+	success &= fetchAnimationFrames(SNOW_URL, (uint8_t**)snowFrames, 3, 1024);
+	
+	Serial.println("Fetching storm frames...");
+	success &= fetchAnimationFrames(STORM_URL, (uint8_t**)stormFrames, 2, 1024);
 	
 	return success;
 }

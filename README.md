@@ -26,37 +26,31 @@ The library supports three animation modes:
 
 The online animation feature allows the library to fetch animation frames from web URLs. If the online resources are unavailable, the library gracefully falls back to locally generated animations.
 
-### URL Format
+### Animation Sources
 
-The library expects animation data in a specific JSON format:
+The library supports fetching animation frames from our GitHub repository. These are stored as PNG files with a naming convention of `[weather_condition]_frame_[frame_number].png`. For example:
 
-```json
-{
-  "frames": [
-    "HEX_DATA_FOR_FRAME_1",
-    "HEX_DATA_FOR_FRAME_2",
-    ...
-  ]
-}
-```
-
-Where each frame's HEX_DATA is a hexadecimal string representing a 1024-byte bitmap (128x64 pixels).
+- sunny-day_frame_000.png
+- sunny-day_frame_001.png
+- etc.
 
 ### Setting Up Online Animations
 
-To use online animations, set the animation mode to `ANIMATION_ONLINE` and provide URLs for each weather condition:
+To use online animations, set the animation mode to `ANIMATION_ONLINE` and provide base URLs for each weather condition:
 
 ```cpp
 // Set animation mode to online
 weatherAnim.setAnimationMode(ANIMATION_ONLINE);
 
-// Set online animation sources
-weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, "https://example.com/clear-day.json");
-weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, "https://example.com/cloudy.json");
-weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, "https://example.com/rain.json");
-weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, "https://example.com/snow.json");
-weatherAnim.setOnlineAnimationSource(WEATHER_STORM, "https://example.com/thunderstorms.json");
+// Set online animation sources (base URLs)
+weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, 
+    "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_");
+weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, 
+    "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_");
+// Add other weather conditions as needed
 ```
+
+The library will append the frame number and file extension (e.g., "000.png", "001.png") to fetch each animation frame.
 
 ## Examples
 

@@ -270,22 +270,26 @@ bool WeatherAnimations::fetchWeatherData() {
             if (_animationMode == ANIMATION_ONLINE && previousWeather != _currentWeather) {
                 WA_SERIAL_PRINTLN("Weather changed, refreshing animations");
                 // Only reload the animation for the current weather to save bandwidth
-                switch(_currentWeather) {
-                    case WEATHER_CLEAR:
-                        fetchAnimationData(CLEAR_SKY_ANIMATION_URL, (uint8_t**)clearSkyFrames, 2, 1024);
-                        break;
-                    case WEATHER_CLOUDY:
-                        fetchAnimationData(CLOUDY_ANIMATION_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
-                        break;
-                    case WEATHER_RAIN:
-                        fetchAnimationData(RAIN_ANIMATION_URL, (uint8_t**)rainFrames, 3, 1024);
-                        break;
-                    case WEATHER_SNOW:
-                        fetchAnimationData(SNOW_ANIMATION_URL, (uint8_t**)snowFrames, 3, 1024);
-                        break;
-                    case WEATHER_STORM:
-                        fetchAnimationData(STORM_ANIMATION_URL, (uint8_t**)stormFrames, 2, 1024);
-                        break;
+                // Use fetchAnimationFrames instead of fetchAnimationData
+                if (_onlineAnimationURLs[_currentWeather] != nullptr) {
+                    // Use the stored URL as a base URL for frame fetching
+                    switch(_currentWeather) {
+                        case WEATHER_CLEAR:
+                            fetchAnimationFrames(_onlineAnimationURLs[_currentWeather], (uint8_t**)clearSkyFrames, 2, 1024);
+                            break;
+                        case WEATHER_CLOUDY:
+                            fetchAnimationFrames(_onlineAnimationURLs[_currentWeather], (uint8_t**)cloudySkyFrames, 2, 1024);
+                            break;
+                        case WEATHER_RAIN:
+                            fetchAnimationFrames(_onlineAnimationURLs[_currentWeather], (uint8_t**)rainFrames, 3, 1024);
+                            break;
+                        case WEATHER_SNOW:
+                            fetchAnimationFrames(_onlineAnimationURLs[_currentWeather], (uint8_t**)snowFrames, 3, 1024);
+                            break;
+                        case WEATHER_STORM:
+                            fetchAnimationFrames(_onlineAnimationURLs[_currentWeather], (uint8_t**)stormFrames, 2, 1024);
+                            break;
+                    }
                 }
             }
             

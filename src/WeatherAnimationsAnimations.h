@@ -7,12 +7,12 @@
 // Animation frames for 128x64 OLED display
 // Each frame is 128x64 pixels, stored as 1024 bytes (128*64/8)
 
-// URLs for fetching weather animations from online sources
-extern const char* CLEAR_SKY_ANIMATION_URL;
-extern const char* CLOUDY_ANIMATION_URL;
-extern const char* RAIN_ANIMATION_URL;
-extern const char* SNOW_ANIMATION_URL;
-extern const char* STORM_ANIMATION_URL;
+// Base URLs for fetching weather animations from online sources
+extern const char* CLEAR_SKY_URL;
+extern const char* CLOUDY_URL;
+extern const char* RAIN_URL;
+extern const char* SNOW_URL;
+extern const char* STORM_URL;
 
 // Clear Sky Animation (2 frames)
 extern uint8_t clearSkyFrame1[1024];
@@ -42,8 +42,8 @@ extern uint8_t stormFrame2[1024];
 extern const uint8_t* stormFrames[2];
 
 // Functions for fetching and initializing animations
-bool hexToBitmap(const String& hexString, uint8_t* bitmap, size_t bitmapSize);
-bool fetchAnimationData(const char* url, uint8_t** frames, int frameCount, size_t frameSize);
+bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitmapSize);
+bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount, size_t frameSize);
 bool initializeAnimationsFromOnline();
 void generateFallbackAnimations();
 
