@@ -1,9 +1,23 @@
 #include "WeatherAnimations.h"
 #include <Arduino.h>
-#if defined(ESP8266) || defined(ESP32)
-#include <WiFiClient.h>
-#include <HTTPClient.h>
+
+#if !defined(ESP32)
+    #define ESP32
 #endif
+
+// Include platform-specific libraries
+#if defined(ESP8266)
+	#include <ESP8266WiFi.h>
+	#include <ESP8266HTTPClient.h>
+	#include <time.h>
+    #include <TFT_eSPI.h>
+#elif defined(ESP32)
+	#include <WiFi.h>
+	#include <HttpClient.h>
+	#include <time.h>
+    #include <TFT_eSPI.h>
+#endif
+
 #include "WeatherAnimationsAnimations.h"
 #include <Adafruit_SSD1306.h>
 
@@ -27,6 +41,7 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
       _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast"),
       _lastFetchTime(0), _fetchCooldown(300000), _isTransitioning(false),
       _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_STATIC) { // 5 minutes cooldown
+    
     // Initialize animations array
     for (int i = 0; i < 5; i++) {
         _animations[i].frames = nullptr;
@@ -63,10 +78,10 @@ void WeatherAnimations::begin(uint8_t displayType, uint8_t i2cAddr, bool manageW
     if (_manageWiFi && WiFi.status() != WL_CONNECTED) {
         if (!connectToWiFi()) {
             // Log error (for now, just a serial print)
-            Serial.println("Failed to connect to Wi-Fi");
+            WA_SERIAL_PRINTLN("Failed to connect to Wi-Fi");
         }
     } else if (!_manageWiFi) {
-        Serial.println("Wi-Fi management disabled, assuming connection is handled externally.");
+        WA_SERIAL_PRINTLN("Wi-Fi management disabled, assuming connection is handled externally.");
     }
 }
 
@@ -136,7 +151,7 @@ bool WeatherAnimations::connectToWiFi() {
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 10) {
         delay(1000);
-        Serial.print(".");
+        WA_SERIAL_PRINT(".");
         attempts++;
     }
     return WiFi.status() == WL_CONNECTED;
@@ -148,7 +163,7 @@ bool WeatherAnimations::fetchWeatherData() {
             connectToWiFi();
         }
         if (WiFi.status() != WL_CONNECTED) {
-            Serial.println("No Wi-Fi connection available.");
+            WA_SERIAL_PRINTLN("No Wi-Fi connection available.");
             return false;
         }
     }
@@ -161,8 +176,8 @@ bool WeatherAnimations::fetchWeatherData() {
     
     if (httpCode == 200) {
         String payload = http.getString();
-        Serial.println("Home Assistant Response:");
-        Serial.println(payload);
+        WA_SERIAL_PRINTLN("Home Assistant Response:");
+        WA_SERIAL_PRINTLN(payload);
         
         // Parse JSON (extended parsing)
         String condition = "";
@@ -225,10 +240,10 @@ bool WeatherAnimations::fetchWeatherData() {
             }
         }
         
-        Serial.print("Detected weather condition: ");
-        Serial.println(condition);
-        Serial.print("Is daytime: ");
-        Serial.println(isDaytime ? "Yes" : "No");
+        WA_SERIAL_PRINT("Detected weather condition: ");
+        WA_SERIAL_PRINTLN(condition);
+        WA_SERIAL_PRINT("Is daytime: ");
+        WA_SERIAL_PRINTLN(isDaytime ? "Yes" : "No");
         
         // Set animation based on the parsed condition
         setAnimationFromHACondition(condition.c_str(), isDaytime);
@@ -236,8 +251,8 @@ bool WeatherAnimations::fetchWeatherData() {
         http.end();
         return true;
     } else {
-        Serial.print("HTTP Error: ");
-        Serial.println(httpCode);
+        WA_SERIAL_PRINT("HTTP Error: ");
+        WA_SERIAL_PRINTLN(httpCode);
         http.end();
         return false;
     }
@@ -433,8 +448,8 @@ bool WeatherAnimations::fetchOnlineAnimation(uint8_t weatherCondition) {
         return false;
     }
     
-    Serial.print("Fetching online animation for condition: ");
-    Serial.println(weatherCondition);
+    WA_SERIAL_PRINT("Fetching online animation for condition: ");
+    WA_SERIAL_PRINTLN(weatherCondition);
     
     const char* url = _onlineAnimationURLs[weatherCondition];
     
@@ -476,18 +491,18 @@ bool WeatherAnimations::fetchOnlineAnimation(uint8_t weatherCondition) {
                     _onlineAnimationCache[weatherCondition].dataSize = bytesRead;
                     _onlineAnimationCache[weatherCondition].isLoaded = true;
                     _onlineAnimationCache[weatherCondition].isAnimated = false;
-                    Serial.println("Online animation data loaded successfully.");
+                    WA_SERIAL_PRINTLN("Online animation data loaded successfully.");
                 }
             } else {
-                Serial.println("Failed to allocate memory for animation data.");
+                WA_SERIAL_PRINTLN("Failed to allocate memory for animation data.");
             }
         }
         
         http.end();
         return _onlineAnimationCache[weatherCondition].isLoaded;
     } else {
-        Serial.print("Failed to fetch online animation, HTTP code: ");
-        Serial.println(httpCode);
+        WA_SERIAL_PRINT("Failed to fetch online animation, HTTP code: ");
+        WA_SERIAL_PRINTLN(httpCode);
         http.end();
         return false;
     }
@@ -534,23 +549,23 @@ bool WeatherAnimations::loadAnimatedGif(uint8_t weatherCondition, const char* ur
                     
                     // Parse the GIF to extract frames
                     if (parseGifFrames(weatherCondition)) {
-                        Serial.println("Animated GIF loaded and parsed successfully.");
+                        WA_SERIAL_PRINTLN("Animated GIF loaded and parsed successfully.");
                         http.end();
                         return true;
                     } else {
-                        Serial.println("Failed to parse GIF frames.");
+                        WA_SERIAL_PRINTLN("Failed to parse GIF frames.");
                     }
                 }
             } else {
-                Serial.println("Failed to allocate memory for GIF data.");
+                WA_SERIAL_PRINTLN("Failed to allocate memory for GIF data.");
             }
         }
         
         http.end();
         return false;
     } else {
-        Serial.print("Failed to fetch animated GIF, HTTP code: ");
-        Serial.println(httpCode);
+        WA_SERIAL_PRINT("Failed to fetch animated GIF, HTTP code: ");
+        WA_SERIAL_PRINTLN(httpCode);
         http.end();
         return false;
     }
@@ -572,7 +587,7 @@ bool WeatherAnimations::parseGifFrames(uint8_t weatherCondition) {
             (uint8_t*)malloc(TFT_WIDTH * TFT_HEIGHT * 2); // 2 bytes per pixel for RGB565
         
         if (_onlineAnimationCache[weatherCondition].frameData[i] == nullptr) {
-            Serial.println("Failed to allocate memory for GIF frame.");
+            WA_SERIAL_PRINTLN("Failed to allocate memory for GIF frame.");
             return false;
         }
         
@@ -587,7 +602,7 @@ void WeatherAnimations::initDisplay() {
     if (_displayType == OLED_DISPLAY) {
         oledDisplay = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
         if (!oledDisplay->begin(SSD1306_SWITCHCAPVCC, _i2cAddr)) {
-            Serial.println(F("SSD1306 allocation failed"));
+            WA_SERIAL_PRINTLN(F("SSD1306 allocation failed"));
             delete oledDisplay;
             oledDisplay = nullptr;
         }
@@ -597,9 +612,9 @@ void WeatherAnimations::initDisplay() {
         tftDisplay->init();
         tftDisplay->fillScreen(TFT_BLACK);
         tftDisplay->setRotation(0);
-        Serial.println("TFT display initialized.");
+        WA_SERIAL_PRINTLN("TFT display initialized.");
         #else
-        Serial.println("TFT display not supported on this platform.");
+        WA_SERIAL_PRINTLN("TFT display not supported on this platform.");
         #endif
     }
 }
@@ -608,7 +623,7 @@ bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool 
     // Find the appropriate icon based on condition and time of day
     const IconMapping* icon = findWeatherIcon(condition, isDaytime);
     if (icon == nullptr) {
-        Serial.println("Warning: Could not find icon for condition");
+        WA_SERIAL_PRINTLN("Warning: Could not find icon for condition");
         return false;
     }
     
@@ -730,7 +745,12 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                             oledDisplay->fillRect(0, i, width, 1, BLACK);
                         }
                     }
-                }
+                    break;
+            }
+            
+            // Draw the bitmap at the calculated position
+            if (_transitionDirection != TRANSITION_FADE) {
+                oledDisplay->drawBitmap(x, y, frameData, width, height, WHITE);
             }
         } else {
             // Default text display if no animation is set
@@ -747,138 +767,137 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
             }
         }
         oledDisplay->display();
-    } else if (_displayType == TFT_DISPLAY) {
-        #if defined(ESP8266) || defined(ESP32)
-        if (tftDisplay != nullptr) {
-            // For TFT display, we'll implement a simple transition
-            // This is a basic implementation - you can enhance it with more complex animations
-            
-            // Clear the display on the first frame
-            if (progress == 0.0f) {
+    } 
+    #if defined(ESP8266) || defined(ESP32)
+    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+        // For TFT display, we'll implement a simple transition
+        // This is a basic implementation - you can enhance it with more complex animations
+        
+        // Clear the display on the first frame
+        if (progress == 0.0f) {
+            tftDisplay->fillScreen(TFT_BLACK);
+        }
+        
+        // Get display dimensions
+        int16_t width = TFT_WIDTH;
+        int16_t height = TFT_HEIGHT;
+        
+        // Calculate display position based on transition direction and progress
+        int16_t x = 0;
+        int16_t y = 0;
+        
+        switch (_transitionDirection) {
+            case TRANSITION_RIGHT_TO_LEFT:
+                x = width * (1.0f - progress);
+                break;
+            case TRANSITION_LEFT_TO_RIGHT:
+                x = -width * (1.0f - progress);
+                break;
+            case TRANSITION_TOP_TO_BOTTOM:
+                y = -height * (1.0f - progress);
+                break;
+            case TRANSITION_BOTTOM_TO_TOP:
+                y = height * (1.0f - progress);
+                break;
+            case TRANSITION_FADE:
+                // For TFT, we can actually do a proper fade by changing opacity
+                // Implement a basic color blend for fade effect
                 tftDisplay->fillScreen(TFT_BLACK);
-            }
-            
-            // Get display dimensions
-            int16_t width = TFT_WIDTH;
-            int16_t height = TFT_HEIGHT;
-            
-            // Calculate display position based on transition direction and progress
-            int16_t x = 0;
-            int16_t y = 0;
-            
-            switch (_transitionDirection) {
-                case TRANSITION_RIGHT_TO_LEFT:
-                    x = width * (1.0f - progress);
-                    break;
-                case TRANSITION_LEFT_TO_RIGHT:
-                    x = -width * (1.0f - progress);
-                    break;
-                case TRANSITION_TOP_TO_BOTTOM:
-                    y = -height * (1.0f - progress);
-                    break;
-                case TRANSITION_BOTTOM_TO_TOP:
-                    y = height * (1.0f - progress);
-                    break;
-                case TRANSITION_FADE:
-                    // For TFT, we can actually do a proper fade by changing opacity
-                    // Implement a basic color blend for fade effect
-                    tftDisplay->fillScreen(TFT_BLACK);
-                    
-                    // The more progress, the more visible the content
-                    uint8_t opacity = progress * 255;
-                    
-                    // Draw the weather icon with fading effect
-                    tftDisplay->setTextColor(TFT_WHITE, TFT_BLACK);
-                    tftDisplay->setCursor(10, 10);
-                    tftDisplay->setTextSize(2);
-                    
-                    // Adjust text color based on opacity (simple approximation)
-                    uint16_t textColor = tftDisplay->color565(opacity, opacity, opacity);
-                    tftDisplay->setTextColor(textColor);
-                    
-                    switch (weatherCondition) {
-                        case WEATHER_CLEAR:
-                            tftDisplay->println("Clear Sky");
-                            tftDisplay->fillCircle(120, 160, 40 * progress, TFT_YELLOW); // Sun growing
-                            break;
-                        case WEATHER_CLOUDY:
-                            tftDisplay->println("Cloudy");
-                            tftDisplay->fillRoundRect(80, 140, 100 * progress, 40 * progress, 20, TFT_WHITE);
-                            break;
-                        // Add cases for other weather conditions
-                        default:
-                            tftDisplay->println("Weather");
-                    }
-                }
-            }
-            
-            // Try to use online animation if available
-            if (_onlineAnimationURLs[weatherCondition] != nullptr && 
-                _onlineAnimationCache[weatherCondition].isLoaded) {
                 
-                // If we have the animation data, we could render it with transition effects
-                // This is a placeholder - actual implementation depends on image format
+                // The more progress, the more visible the content
+                uint8_t opacity = progress * 255;
                 
-                // Display a basic placeholder with transition
-                tftDisplay->fillScreen(TFT_BLACK);
-                tftDisplay->setCursor(x + 10, y + 10);
-                tftDisplay->setTextColor(TFT_WHITE);
+                // Draw the weather icon with fading effect
+                tftDisplay->setTextColor(TFT_WHITE, TFT_BLACK);
+                tftDisplay->setCursor(10, 10);
                 tftDisplay->setTextSize(2);
+                
+                // Adjust text color based on opacity (simple approximation)
+                uint16_t textColor = tftDisplay->color565(opacity, opacity, opacity);
+                tftDisplay->setTextColor(textColor);
                 
                 switch (weatherCondition) {
                     case WEATHER_CLEAR:
                         tftDisplay->println("Clear Sky");
-                        tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
+                        tftDisplay->fillCircle(120, 160, 40 * progress, TFT_YELLOW); // Sun growing
                         break;
                     case WEATHER_CLOUDY:
                         tftDisplay->println("Cloudy");
-                        tftDisplay->fillRoundRect(x + 80, y + 140, 100, 40, 20, TFT_WHITE);
+                        tftDisplay->fillRoundRect(80, 140, 100 * progress, 40 * progress, 20, TFT_WHITE);
                         break;
-                    case WEATHER_RAIN:
-                        tftDisplay->println("Rainy");
-                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
-                        for (int i = 0; i < 10; i++) {
-                            tftDisplay->drawLine(x + 90 + i*10, y + 170, x + 90 + i*10 + 5, y + 190, TFT_BLUE);
-                        }
-                        break;
-                    case WEATHER_SNOW:
-                        tftDisplay->println("Snowy");
-                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
-                        for (int i = 0; i < 10; i++) {
-                            tftDisplay->drawPixel(x + 90 + i*10, y + 180, TFT_WHITE);
-                            tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180, TFT_WHITE);
-                            tftDisplay->drawPixel(x + 90 + i*10, y + 180 + 1, TFT_WHITE);
-                            tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180 + 1, TFT_WHITE);
-                        }
-                        break;
-                    case WEATHER_STORM:
-                        tftDisplay->println("Stormy");
-                        tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_DARKGREY);
-                        tftDisplay->fillTriangle(x + 120, y + 170, x + 130, y + 200, x + 110, y + 190, TFT_YELLOW);
-                        break;
-                    default:
-                        tftDisplay->println("Unknown");
-                }
-            } else {
-                // Fallback to basic display with transition
-                tftDisplay->fillScreen(TFT_BLACK);
-                tftDisplay->setCursor(x + 10, y + 10);
-                tftDisplay->setTextColor(TFT_WHITE);
-                tftDisplay->setTextSize(2);
-                
-                switch (weatherCondition) {
-                    case WEATHER_CLEAR:
-                        tftDisplay->println("Clear Sky");
-                        tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
-                        break;
-                    // Add cases for other weather types (same as above)
+                    // Add cases for other weather conditions
                     default:
                         tftDisplay->println("Weather");
                 }
+                break;
+        }
+        
+        // Try to use online animation if available
+        if (_onlineAnimationURLs[weatherCondition] != nullptr && 
+            _onlineAnimationCache[weatherCondition].isLoaded) {
+            
+            // If we have the animation data, we could render it with transition effects
+            // This is a placeholder - actual implementation depends on image format
+            
+            // Display a basic placeholder with transition
+            tftDisplay->fillScreen(TFT_BLACK);
+            tftDisplay->setCursor(x + 10, y + 10);
+            tftDisplay->setTextColor(TFT_WHITE);
+            tftDisplay->setTextSize(2);
+            
+            switch (weatherCondition) {
+                case WEATHER_CLEAR:
+                    tftDisplay->println("Clear Sky");
+                    tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
+                    break;
+                case WEATHER_CLOUDY:
+                    tftDisplay->println("Cloudy");
+                    tftDisplay->fillRoundRect(x + 80, y + 140, 100, 40, 20, TFT_WHITE);
+                    break;
+                case WEATHER_RAIN:
+                    tftDisplay->println("Rainy");
+                    tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
+                    for (int i = 0; i < 10; i++) {
+                        tftDisplay->drawLine(x + 90 + i*10, y + 170, x + 90 + i*10 + 5, y + 190, TFT_BLUE);
+                    }
+                    break;
+                case WEATHER_SNOW:
+                    tftDisplay->println("Snowy");
+                    tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_LIGHTGREY);
+                    for (int i = 0; i < 10; i++) {
+                        tftDisplay->drawPixel(x + 90 + i*10, y + 180, TFT_WHITE);
+                        tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180, TFT_WHITE);
+                        tftDisplay->drawPixel(x + 90 + i*10, y + 180 + 1, TFT_WHITE);
+                        tftDisplay->drawPixel(x + 90 + i*10 + 1, y + 180 + 1, TFT_WHITE);
+                    }
+                    break;
+                case WEATHER_STORM:
+                    tftDisplay->println("Stormy");
+                    tftDisplay->fillRoundRect(x + 80, y + 120, 100, 40, 20, TFT_DARKGREY);
+                    tftDisplay->fillTriangle(x + 120, y + 170, x + 130, y + 200, x + 110, y + 190, TFT_YELLOW);
+                    break;
+                default:
+                    tftDisplay->println("Unknown");
+            }
+        } else {
+            // Fallback to basic display with transition
+            tftDisplay->fillScreen(TFT_BLACK);
+            tftDisplay->setCursor(x + 10, y + 10);
+            tftDisplay->setTextColor(TFT_WHITE);
+            tftDisplay->setTextSize(2);
+            
+            switch (weatherCondition) {
+                case WEATHER_CLEAR:
+                    tftDisplay->println("Clear Sky");
+                    tftDisplay->fillCircle(x + 120, y + 160, 40, TFT_YELLOW);
+                    break;
+                // Add cases for other weather types (same as above)
+                default:
+                    tftDisplay->println("Weather");
             }
         }
-        #endif
     }
+    #endif
 }
 
  

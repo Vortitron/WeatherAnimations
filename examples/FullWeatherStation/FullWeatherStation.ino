@@ -19,6 +19,9 @@
  * 2. Edit config.h with your WiFi and Home Assistant credentials
  */
 
+// Uncomment this line to disable Serial debug messages from the WeatherAnimations library
+// #define WA_DISABLE_SERIAL
+
 #include <WeatherAnimations.h>
 #include <Arduino.h>
 #include <Wire.h>

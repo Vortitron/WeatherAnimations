@@ -1,96 +1,82 @@
-# Weather Animations Library
+# WeatherAnimations Library
 
-A library for displaying animated weather icons on OLED and TFT displays for Arduino and ESP32/ESP8266 projects. This library connects to Home Assistant to fetch weather data and display appropriate animations.
+A library for displaying animated weather icons and forecasts on OLED and TFT displays.
 
-## Features
+## Overview
 
-- Support for both OLED (monochrome) and TFT (color) displays
-- Animated weather icons for various conditions
-- Home Assistant integration for real-time weather data
-- Configurable refresh intervals and display modes
-- Transition effects between animations
-- Day/Night variants for weather conditions
-- Customizable and easily extendable
+This library allows you to display weather animations from various sources:
+- Embedded animations (stored in program memory)
+- Online animations (downloaded and cached)
+- Static icons
+
+It supports both OLED displays (via Adafruit_SSD1306) and TFT displays (via TFT_eSPI), and can connect to Home Assistant for weather data.
 
 ## Installation
 
-1. Download the latest release as a ZIP file
-2. In the Arduino IDE, go to Sketch > Include Library > Add .ZIP Library
-3. Select the downloaded ZIP file
-4. The library will be installed and available in the Arduino IDE
+### Using PlatformIO
+
+1. Add the library to your `platformio.ini` file:
+
+```ini
+lib_deps =
+    https://github.com/vortitron/WeatherAnimations.git
+```
+
+2. The necessary dependencies will be installed automatically.
+
+### Using Arduino IDE
+
+1. Install the following libraries through the Arduino Library Manager:
+   - Adafruit SSD1306
+   - Adafruit GFX Library
+   - TFT_eSPI
+   - ArduinoJson
+
+2. Download this library as a ZIP file and add it through Sketch > Include Library > Add .ZIP Library...
+
+## Required Libraries
+
+- Adafruit SSD1306
+- Adafruit GFX Library
+- TFT_eSPI (for TFT displays)
+- ESP8266WiFi or WiFi (depending on platform)
+- ESP8266HTTPClient or HTTPClient (depending on platform)
+- ArduinoJson
+
+## Examples
+
+See the `examples` directory for examples, including:
+- Basic OLED weather display
+- TFT weather animations
+- Full weather station with Home Assistant integration
 
 ## Configuration
 
-For security reasons, sensitive configuration details like WiFi credentials and API keys should be kept separate from your main sketch. The library provides a configuration approach to help with this:
+The library can be configured for different displays and data sources. See the example configurations in the `examples` directory.
 
-1. Copy the `examples/config_example.h` file to the same directory as your sketch and rename it to `config.h`
-2. Edit `config.h` with your personal settings (WiFi credentials, Home Assistant IP and token)
-3. Add `#include "config.h"` to your sketch
-4. Add `config.h` to your `.gitignore` file to keep credentials private
+## Troubleshooting
 
-Example configuration file:
+### Serial Undefined Error
+If you encounter `identifier "Serial" is undefined` errors when compiling:
 
-```cpp
-// WiFi credentials
-#define WIFI_SSID       "YourWiFiSSID"
-#define WIFI_PASSWORD   "YourWiFiPassword"
+1. Make sure to initialize Serial in your sketch before using the library:
+   ```cpp
+   void setup() {
+     Serial.begin(115200);
+     // Rest of your setup code...
+   }
+   ```
 
-// Home Assistant settings
-#define HA_IP           "192.168.1.100"
-#define HA_PORT         8123
-#define HA_TOKEN        "YourHomeAssistantLongLivedToken"
-#define HA_WEATHER_ENTITY "weather.forecast_home"
-```
-
-## Usage
-
-The library includes several examples to help you get started:
-
-- **BasicUsage**: Simple example for OLED displays
-- **TFTUsage**: Example for TFT displays with online animations
-- **FullWeatherStation**: Advanced example with both display types and more features
-
-Basic usage:
-
-```cpp
-#include <WeatherAnimations.h>
-#include "config.h"  // Your configuration file
-
-// Create WeatherAnimations instance with credentials from config.h
-WeatherAnimations weatherAnim(WIFI_SSID, WIFI_PASSWORD, HA_IP, HA_TOKEN);
-
-void setup() {
-  // Initialize with OLED display
-  weatherAnim.begin(OLED_DISPLAY, OLED_ADDRESS, true);
-  
-  // Set the weather entity ID from Home Assistant
-  weatherAnim.setWeatherEntity(HA_WEATHER_ENTITY);
-  
-  // Set mode to continuous weather display
-  weatherAnim.setMode(CONTINUOUS_WEATHER);
-}
-
-void loop() {
-  // Update the display with current weather
-  weatherAnim.update();
-  
-  // Small delay to prevent excessive updates
-  delay(100);
-}
-```
-
-## Requirements
-
-- Arduino IDE 1.8.0 or later
-- ESP8266 or ESP32 board (recommended) or Arduino board with sufficient memory
-- OLED display (SSD1306 or similar) or TFT display (ILI9341, ST7735, ST7789, etc.)
-- Stable WiFi connection for Home Assistant integration
+2. If you don't need Serial debugging, you can modify the library to disable Serial calls by defining:
+   ```cpp
+   #define WA_DISABLE_SERIAL
+   ```
+   before including the library.
 
 ## License
 
-This library is released under the MIT License. See LICENSE file for details.
+MIT License
 
 ## Credits
 
-- Weather icons based on [weather-icons by Bas Milius](https://github.com/basmilius/weather-icons)
-- Animation conversion script developed specifically for this project
+Weather icons based on designs from https://github.com/basmilius/weather-icons

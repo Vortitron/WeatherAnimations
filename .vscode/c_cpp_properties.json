@@ -6,7 +6,9 @@
                 "${workspaceFolder}/**",
                 "~/.arduino15/packages/**",
                 "~/Arduino/**",
-                "/home/vortitron/snap/arduino-cli/60/Arduino/libraries/**"
+                "/home/vortitron/snap/arduino-cli/60/Arduino/libraries/**",
+                "/home/vortitron/WeatherAnimations/.pio/**",
+                "/home/vortitron/WeatherAnimations/.pio/libdeps/esp32/HTTPClient"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

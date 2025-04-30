@@ -1,3 +1,4 @@
+
 #ifndef WEATHER_ANIMATIONS_H
 #define WEATHER_ANIMATIONS_H
 
@@ -6,40 +7,63 @@
 #define ARDUINO 10800 // Arduino 1.8.0 or higher
 #endif
 
+// Arduino core must be included first
 #include <Arduino.h>
-#include <WiFi.h>
-#include <HttpClient.h>
-#include <Adafruit_GFX.h>
+#include <Wire.h>
+#include <Adafruit_SSD1306.h>
 
-// Include TFT_eSPI library for TFT display support
-#include <TFT_eSPI.h>
+// Define Serial macros to allow disabling debug output
+#ifndef WA_DISABLE_SERIAL
+	#define WA_SERIAL_PRINT(x) Serial.print(x)
+	#define WA_SERIAL_PRINTLN(x) Serial.println(x)
+	#define WA_SERIAL_PRINTF(fmt, ...) Serial.printf(fmt, __VA_ARGS__)
+#else
+	#define WA_SERIAL_PRINT(x)
+	#define WA_SERIAL_PRINTLN(x)
+	#define WA_SERIAL_PRINTF(fmt, ...)
+#endif
+
+// Include platform-specific libraries
+#if defined(ESP8266)
+	#include <ESP8266WiFi.h>
+	#include <ESP8266HTTPClient.h>
+	#include <time.h>
+#elif defined(ESP32)
+	#include <WiFi.h>
+	#include <HTTPClient.h>
+	#include <time.h>
+#endif
+
+#if defined(ESP8266) || defined(ESP32)
+	#include <TFT_eSPI.h>
+#endif
 
 // Define display types
-#define OLED_DISPLAY 1
-#define TFT_DISPLAY  2
+#define OLED_DISPLAY 0
+#define TFT_DISPLAY 1
 
 // Define operation modes
-#define SIMPLE_TRANSITION   1
-#define CONTINUOUS_WEATHER  2
+#define SIMPLE_TRANSITION 1
+#define CONTINUOUS_WEATHER 0
 
 // Define transition directions
+#define TRANSITION_LEFT_TO_RIGHT 0
 #define TRANSITION_RIGHT_TO_LEFT 1
-#define TRANSITION_LEFT_TO_RIGHT 2
-#define TRANSITION_TOP_TO_BOTTOM 3
-#define TRANSITION_BOTTOM_TO_TOP 4
-#define TRANSITION_FADE          5
+#define TRANSITION_TOP_TO_BOTTOM 2
+#define TRANSITION_BOTTOM_TO_TOP 3
+#define TRANSITION_FADE 4
 
 // Define animation modes
-#define ANIMATION_STATIC   0  // Static icons (single frame)
-#define ANIMATION_EMBEDDED 1  // Animated icons using embedded frames
-#define ANIMATION_ONLINE   2  // Animated icons fetched online
+#define ANIMATION_STATIC 0
+#define ANIMATION_EMBEDDED 1
+#define ANIMATION_ONLINE 2
 
 // Weather condition codes (simplified for demonstration)
-#define WEATHER_CLEAR   0
-#define WEATHER_CLOUDY  1
-#define WEATHER_RAIN    2
-#define WEATHER_SNOW    3
-#define WEATHER_STORM   4
+#define WEATHER_CLEAR 0
+#define WEATHER_CLOUDY 1
+#define WEATHER_RAIN 2
+#define WEATHER_SNOW 3
+#define WEATHER_STORM 4
 
     class WeatherAnimations {
 public:
