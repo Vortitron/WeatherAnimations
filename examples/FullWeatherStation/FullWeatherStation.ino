@@ -13,11 +13,22 @@
  * - ST7789 or ILI9341 TFT display (240x240 recommended)
  * - Rotary encoder with push button
  * - Optional: BME280/BME680 sensor for local readings
+ * 
+ * Setup:
+ * 1. Copy examples/config_example.h to examples/FullWeatherStation/config.h
+ * 2. Edit config.h with your WiFi and Home Assistant credentials
  */
 
 #include <WeatherAnimations.h>
 #include <Arduino.h>
 #include <Wire.h>
+
+// Try to include the configuration file
+// If it doesn't exist, we'll use default values
+#if __has_include("config.h")
+	#include "config.h"
+	#define CONFIG_EXISTS
+#endif
 
 // Optional: Include sensor libraries if you have local sensors
 // #include <Adafruit_BME280.h>
@@ -30,26 +41,65 @@ const int backButton = 14;   // Back button
 const int modeButton = 12;   // Mode selection button
 
 // OLED display settings (using I2C)
-const int OLED_ADDRESS = 0x3C;
-const int OLED_SDA = 21;
-const int OLED_SCL = 22;
+#ifndef CONFIG_EXISTS
+	const int OLED_ADDRESS = 0x3C;
+	const int OLED_SDA = 21;
+	const int OLED_SCL = 22;
+#else
+	const int OLED_ADDRESS = OLED_ADDRESS;
+	const int OLED_SDA = 21;  // Default pins, can be customized in your config if needed
+	const int OLED_SCL = 22;
+#endif
 
 // TFT display settings (using SPI)
 const int TFT_CS = 5;
 const int TFT_DC = 4;
 const int TFT_RST = 2;
 
-// Replace with your network credentials
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
-
-// Home Assistant settings
-const char* haIP = "YourHomeAssistantIP"; // e.g., "192.168.1.100"
-const char* haToken = "YourHomeAssistantToken";
-const char* weatherEntity = "weather.forecast_home";
-const char* temperatureEntity = "sensor.outside_temperature";
-const char* humidityEntity = "sensor.outside_humidity";
-const char* pressureEntity = "sensor.outside_pressure";
+// Network and Home Assistant settings
+#ifndef CONFIG_EXISTS
+	// Default values if no config.h exists
+	const char* ssid = "YourWiFiSSID";
+	const char* password = "YourWiFiPassword";
+	const char* haIP = "YourHomeAssistantIP";
+	const char* haToken = "YourHomeAssistantToken";
+	const char* weatherEntity = "weather.forecast_home";
+	const char* temperatureEntity = "sensor.outside_temperature";
+	const char* humidityEntity = "sensor.outside_humidity";
+	const char* pressureEntity = "sensor.outside_pressure";
+	
+	// Animation URLs (default to GitHub links)
+	const char* clearDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+	const char* clearNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+	const char* partlyCloudyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/partlycloudy-day.gif";
+	const char* partlyCloudyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/partlycloudy-night.gif";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+	const char* fogURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/fog.gif";
+#else
+	// Use settings from config.h
+	const char* ssid = WIFI_SSID;
+	const char* password = WIFI_PASSWORD;
+	const char* haIP = HA_IP;
+	const char* haToken = HA_TOKEN;
+	const char* weatherEntity = HA_WEATHER_ENTITY;
+	const char* temperatureEntity = HA_TEMPERATURE_ENTITY;
+	const char* humidityEntity = HA_HUMIDITY_ENTITY;
+	const char* pressureEntity = HA_PRESSURE_ENTITY;
+	
+	// Animation URLs from config
+	const char* clearDayURL = ANIM_CLEAR_DAY;
+	const char* clearNightURL = ANIM_CLEAR_NIGHT;
+	const char* cloudyURL = ANIM_CLOUDY;
+	const char* partlyCloudyDayURL = ANIM_PARTLYCLOUDY_DAY;
+	const char* partlyCloudyNightURL = ANIM_PARTLYCLOUDY_NIGHT;
+	const char* rainURL = ANIM_RAIN;
+	const char* snowURL = ANIM_SNOW;
+	const char* stormURL = ANIM_STORM;
+	const char* fogURL = ANIM_FOG;
+#endif
 
 // Display modes
 enum DisplayMode {
@@ -75,17 +125,6 @@ WeatherAnimations tftWeather(ssid, password, haIP, haToken);
 // Optional: Sensor instance
 // Adafruit_BME280 bme;
 
-// Weather animation URLs
-const char* clearDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
-const char* clearNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
-const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
-const char* partlyCloudyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/partlycloudy-day.gif";
-const char* partlyCloudyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/partlycloudy-night.gif";
-const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
-const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
-const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
-const char* fogURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/fog.gif";
-
 // Forward declarations for helper functions
 void handleEncoderRotation();
 void handleButtonPresses();
@@ -100,6 +139,13 @@ void setup() {
 	// Initialize serial for debugging
 	Serial.begin(115200);
 	Serial.println("Starting Full Weather Station Example");
+	
+	#ifdef CONFIG_EXISTS
+	Serial.println("Using configuration from config.h");
+	#else
+	Serial.println("WARNING: No config.h found. Using default values.");
+	Serial.println("Copy config_example.h to config.h and customize it.");
+	#endif
 	
 	// Initialize I2C for OLED
 	Wire.begin(OLED_SDA, OLED_SCL);

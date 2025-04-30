@@ -1,2 +1,54 @@
+# Gitignore for Weather Animations Project
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# Build and dependency directories
+build/
+.pio/
+node_modules/
+dist/
+
+# Configuration files with sensitive information
+config.h
+**/config.h
+**/my_config.h
+secrets.h
+**/secrets.h
+credentials.h
+**/credentials.h
+
+# Binary files and libraries
+*.o
+*.a
+*.bin
+*.elf
+*.hex
+*.map
+
+# Arduino libraries
+libraries/
+
+# Temp files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Log files
+*.log
+
 weather_icons/*
 weather_animations.zip

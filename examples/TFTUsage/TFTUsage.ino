@@ -5,10 +5,21 @@
  * connect to Home Assistant, and display weather animations on a TFT display.
  * 
  * It utilizes online animation sources (GIFs or JPGs) for better visual quality.
+ * 
+ * Setup:
+ * 1. Copy examples/config_example.h to examples/TFTUsage/config.h
+ * 2. Edit config.h with your WiFi and Home Assistant credentials
  */
 
 #include <WeatherAnimations.h>
 #include <Arduino.h>
+
+// Try to include the configuration file
+// If it doesn't exist, we'll use default values
+#if __has_include("config.h")
+	#include "config.h"
+	#define CONFIG_EXISTS
+#endif
 
 // Define button pins
 const int encoderPUSH = 27; // Button to cycle through animations
@@ -32,34 +43,58 @@ bool lastBackButtonState = HIGH;
 unsigned long lastDebounceTime = 0;
 const unsigned long debounceDelay = 50;
 
-// Replace with your Wi-Fi and Home Assistant credentials
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
-const char* haIP = "YourHomeAssistantIP"; // e.g., "192.168.1.100"
-const char* haToken = "YourHomeAssistantToken"; // Long-lived access token from Home Assistant
-
-// Custom weather entity ID from Home Assistant (e.g., using Met.no integration)
-const char* weatherEntity = "weather.forecast_home";
+// Network and API credentials
+// These will be overridden by config.h if it exists
+#ifndef CONFIG_EXISTS
+	const char* ssid = "YourWiFiSSID";
+	const char* password = "YourWiFiPassword";
+	const char* haIP = "YourHomeAssistantIP";
+	const char* haToken = "YourHomeAssistantToken";
+	const char* weatherEntity = "weather.forecast_home";
+	
+	// Animation URLs (default to GitHub links)
+	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
+#else
+	// Use the configuration from config.h
+	const char* ssid = WIFI_SSID;
+	const char* password = WIFI_PASSWORD;
+	const char* haIP = HA_IP;
+	const char* haToken = HA_TOKEN;
+	const char* weatherEntity = HA_WEATHER_ENTITY;
+	
+	// Animation URLs from config
+	const char* clearSkyDayURL = ANIM_CLEAR_DAY;
+	const char* clearSkyNightURL = ANIM_CLEAR_NIGHT;
+	const char* cloudyURL = ANIM_CLOUDY;
+	const char* rainURL = ANIM_RAIN;
+	const char* heavyRainURL = ANIM_HEAVY_RAIN;
+	const char* snowURL = ANIM_SNOW;
+	const char* stormURL = ANIM_STORM;
+	const char* stormRainURL = ANIM_STORM_RAIN;
+#endif
 
 // Create WeatherAnimations instance
 WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
-
-// Online animation sources (URLs to animation or image files)
-// Replace these with the actual URLs to your animations
-const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
-const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
-const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
-const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
-const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
-const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
-const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
-const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
 
 void setup() {
 	// Initialize serial for debugging (if available on your board)
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 	Serial.begin(115200);
 	Serial.println("Starting WeatherAnimations TFT example");
+	
+	#ifdef CONFIG_EXISTS
+	Serial.println("Using configuration from config.h");
+	#else
+	Serial.println("WARNING: No config.h found. Using default values.");
+	Serial.println("Copy config_example.h to config.h and customize it.");
+	#endif
 	#endif
 	
 	// Initialize button pins
