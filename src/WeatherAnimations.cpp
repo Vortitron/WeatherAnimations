@@ -740,7 +740,7 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                     
                     // Draw black rectangles that diminish as progress increases
                     for (int16_t i = 0; i < height; i += 2) {
-                        int16_t barHeight = max(1, (int16_t)(2 * (1.0f - progress)));
+                        int16_t barHeight = max((int16_t)1, (int16_t)(2 * (1.0f - progress)));
                         if (i % 4 < barHeight) {
                             oledDisplay->fillRect(0, i, width, 1, BLACK);
                         }
