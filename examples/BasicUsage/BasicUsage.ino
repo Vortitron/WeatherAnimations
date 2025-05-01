@@ -25,6 +25,14 @@
 
 // Include the library source files directly for development
 #include "../../src/WeatherAnimations.h"
+#include "../../src/WeatherAnimations.cpp"
+#include "../../src/WeatherAnimationsAnimations.h"
+#include "../../src/WeatherAnimationsAnimations.cpp"
+#include "../../src/WeatherAnimationsIcons.h"
+#include "../../src/WeatherAnimationsIcons.cpp"
+
+// Include the library source files as a zip file
+// #include <WeatherAnimations.h>
 
 // Try to include the configuration file
 // If it doesn't exist, we'll use default values
