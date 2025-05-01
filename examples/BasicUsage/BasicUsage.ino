@@ -57,7 +57,7 @@ const int WEATHER_TYPE_COUNT = 5;
 
 // Button state variables
 int currentWeatherIndex = 0;
-bool manualMode = false;
+bool manualMode = true; // Start in manual mode by default
 bool lastEncoderPushState = HIGH;
 bool lastBackButtonState = HIGH;
 unsigned long lastDebounceTime = 0;
@@ -137,7 +137,7 @@ void setup() {
 	
 	// Set animation mode to static initially
 	// Can be toggled with left button
-	weatherAnim.setAnimationMode(ANIMATION_STATIC);
+	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED); // Use embedded fallback animations for testing
 	
 	// Set base URLs for online animations (used when in ANIMATION_ONLINE mode)
 	// These URLs point to the base paths of our animation frames
@@ -161,24 +161,30 @@ void setup() {
 
 void handleButtons() {
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	Serial.println("Handling button inputs.");
+	// Removed constant logging to reduce noise
 	#endif
 	// Read current button states
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
 	bool leftButtonState = digitalRead(leftButton);
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	Serial.print("Button states - Encoder: ");
-	Serial.print(encoderPushState);
-	Serial.print(", Back: ");
-	Serial.print(backButtonState);
-	Serial.print(", Left: ");
-	Serial.println(leftButtonState);
+	// Log only if a button state has changed
+	if (encoderPushState != lastEncoderPushState || backButtonState != lastBackButtonState || leftButtonState != lastLeftButtonState) {
+		Serial.print("Button states - Encoder: ");
+		Serial.print(encoderPushState);
+		Serial.print(", Back: ");
+		Serial.print(backButtonState);
+		Serial.print(", Left: ");
+		Serial.println(leftButtonState);
+	}
 	#endif
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
 		lastDebounceTime = millis();
+		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+		Serial.println("Encoder button state changed.");
+		#endif
 	}
 	
 	if ((millis() - lastDebounceTime) > debounceDelay) {
@@ -203,6 +209,9 @@ void handleButtons() {
 	// Handle back button (with debounce)
 	if (backButtonState != lastBackButtonState) {
 		lastDebounceTime = millis();
+		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+		Serial.println("Back button state changed.");
+		#endif
 	}
 	
 	if ((millis() - lastDebounceTime) > debounceDelay) {
@@ -221,6 +230,9 @@ void handleButtons() {
 	// Handle left button (with debounce)
 	if (leftButtonState != lastLeftButtonState) {
 		lastDebounceTime = millis();
+		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+		Serial.println("Left button state changed.");
+		#endif
 	}
 	
 	if ((millis() - lastDebounceTime) > debounceDelay) {
@@ -252,7 +264,7 @@ void handleButtons() {
 
 void loop() {
 	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	Serial.println("Main loop running.");
+	// Removed constant logging to reduce noise
 	#endif
 	// Check button states
 	handleButtons();
