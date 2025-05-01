@@ -1,115 +1,121 @@
-# WeatherAnimations Library
+# Weather Animations Library for ESP32
 
-A versatile Arduino library for displaying weather animations on OLED and TFT displays. This library fetches weather data from Home Assistant and displays appropriate animations based on current conditions.
+A library for displaying animated weather icons on a SH1106 OLED display connected to an ESP32, with Home Assistant integration.
 
 ## Features
 
-- Supports both OLED (SSD1306) and TFT displays
-- Connects to Home Assistant to fetch weather data
-- Multiple animation modes:
-  - **Static Mode**: Basic static weather icons
-  - **Embedded Mode**: Pre-loaded animations stored in program memory
-  - **Online Mode**: Dynamically fetches animation data from online sources
-- Smooth transitions between weather states
-- Handles various weather conditions: clear, cloudy, rain, snow, and storms
-- Low memory footprint with fallback capabilities when network is unavailable
+- Display different weather animations on SH1106 OLED display
+- Connect to Home Assistant to fetch real-time weather data
+- Multiple transition types for smooth weather changes
+- Support for both static and animated icons
+- Simple button interface for demonstration
 
-## Animation Modes
+## Hardware Requirements
 
-The library supports three animation modes:
+- ESP32 development board
+- SH1106 OLED display (I2C, typically at address 0x3C)
+- Push buttons for demo interface (optional)
 
-1. **ANIMATION_STATIC**: Uses simple static images for each weather condition, consuming minimal memory.
-2. **ANIMATION_EMBEDDED**: Uses animations embedded in the program memory, providing a balance between visual appeal and memory usage.
-3. **ANIMATION_ONLINE**: Fetches animation data from online sources, providing the richest visuals but requiring an active internet connection.
+## Software Dependencies
 
-## Online Animation Support
+This library requires the following Arduino libraries:
 
-The online animation feature allows the library to fetch animation frames from web URLs. If the online resources are unavailable, the library gracefully falls back to locally generated animations.
+- [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)
+- [Adafruit SH110X Library](https://github.com/adafruit/Adafruit_SH110x)
+- [U8g2lib](https://github.com/olikraus/u8g2)
+- Arduino ESP32 core
 
-### Animation Sources
+## Installation
 
-The library supports fetching animation frames from our GitHub repository. These are stored as PNG files with a naming convention of `[weather_condition]_frame_[frame_number].png`. For example:
+### Libraries Installation
 
-- sunny-day_frame_000.png
-- sunny-day_frame_001.png
-- etc.
+1. Install the Arduino IDE
+2. Install the ESP32 board support package:
+   - In Arduino IDE: Tools > Board > Boards Manager
+   - Search for "esp32" and install the latest version
+3. Install required libraries:
+   - In Arduino IDE: Sketch > Include Library > Manage Libraries
+   - Search and install:
+     - "Adafruit GFX Library"
+     - "Adafruit SH110X"
+     - "U8g2"
 
-### Setting Up Online Animations
+### Configuration
 
-To use online animations, set the animation mode to `ANIMATION_ONLINE` and provide base URLs for each weather condition:
+1. Copy `examples/config_example.h` to `examples/BasicUsage/config.h`
+2. Edit `config.h` with your Wi-Fi and Home Assistant credentials:
+   - Wi-Fi SSID and password
+   - Home Assistant IP address
+   - Home Assistant long-lived access token
+   - Weather entity ID to use
 
-```cpp
-// Set animation mode to online
-weatherAnim.setAnimationMode(ANIMATION_ONLINE);
+## Usage
 
-// Set online animation sources (base URLs)
-weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, 
-    "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_");
-weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, 
-    "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_");
-// Add other weather conditions as needed
+### Basic Example
+
+Load the `BasicUsage` example to display weather animations with manual control:
+
+```arduino
+// Initialize the library
+weatherAnim.begin(OLED_SH1106, oledAddress, true);
+
+// Set weather entity
+weatherAnim.setWeatherEntity("weather.forecast_home");
+
+// Set mode
+weatherAnim.setMode(CONTINUOUS_WEATHER);
+
+// Choose animation mode (ANIMATION_STATIC, ANIMATION_EMBEDDED, or ANIMATION_ONLINE)
+weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+
+// Update in the main loop
+weatherAnim.update();
 ```
 
-The library will append the frame number and file extension (e.g., "000.png", "001.png") to fetch each animation frame.
+### Buttons in Demo
 
-## Examples
+The demo example uses three buttons:
+- Button 1 (Encoder push): Cycle through different weather types
+- Button 2 (Back): Return to live weather data from Home Assistant
+- Button 3 (Left): Toggle between static and animated icons
 
-The library includes several examples:
+### Display Transitions
 
-1. **BasicUsage**: A simple demonstration with button control to switch between animation modes.
-2. **MinimalWeatherStation**: A minimal implementation with online animation support.
-3. **FullWeatherStation**: A comprehensive example showing advanced features and multiple display support.
+You can manually trigger transitions between weather types:
 
-## Getting Started
-
-1. Install the library via the Arduino Library Manager or download from GitHub.
-2. Connect your display (OLED or TFT) to your Arduino/ESP board.
-3. Set up your Home Assistant connection in the example sketch.
-4. Upload one of the example sketches to your board.
-
-## Configuration
-
-For each example, copy the `config_example.h` file to the example directory and rename it to `config.h`. Then modify it with your WiFi and Home Assistant credentials:
-
-```cpp
-// WiFi Settings
-#define WIFI_SSID "YourWiFiSSID"
-#define WIFI_PASSWORD "YourWiFiPassword"
-
-// Home Assistant Settings
-#define HA_IP "your-home-assistant-ip"
-#define HA_TOKEN "your-long-lived-access-token"
-#define HA_WEATHER_ENTITY "weather.your_weather_entity"
-
-// OLED Settings
-#define OLED_ADDRESS 0x3C
+```arduino
+// Transition to a specific weather with right-to-left animation
+weatherAnim.runTransition(WEATHER_CLEAR, TRANSITION_RIGHT_TO_LEFT, 500);
 ```
 
-## Button Controls
+Available transition types:
+- `TRANSITION_LEFT_TO_RIGHT`
+- `TRANSITION_RIGHT_TO_LEFT`
+- `TRANSITION_TOP_TO_BOTTOM`
+- `TRANSITION_BOTTOM_TO_TOP`
+- `TRANSITION_FADE`
 
-The examples use buttons to provide user control:
+## Troubleshooting
 
-- **Encoder Push Button**: Cycle through weather animations in manual mode
-- **Back Button**: Return to live weather data mode
-- **Left Button / Mode Button**: Toggle between static and online animation modes
+### SH1106 Display Issues
+
+If you're having trouble with the SH1106 display:
+- Verify the I2C address (typically 0x3C or 0x3D)
+- Check the I2C connections (SDA and SCL)
+- Try a lower I2C speed if you experience issues
+- Make sure you've installed the Adafruit SH110X library
+
+### Home Assistant Connection
+
+If you can't connect to Home Assistant:
+- Verify Wi-Fi credentials
+- Check that your Home Assistant token has the necessary permissions
+- Make sure the weather entity exists and is accessible
 
 ## Contributing
 
-Contributions to improve the library are welcome. Please feel free to submit issues and pull requests on GitHub.
+Contributions to improve the library are welcome. Please submit pull requests with clear descriptions of the changes and benefits.
 
 ## License
 
-This library is released under the MIT License.
-
-## Required Libraries
-
-- Adafruit SSD1306
-- Adafruit GFX Library
-- TFT_eSPI (for TFT displays)
-- ESP8266WiFi or WiFi (depending on platform)
-- ESP8266HTTPClient or HTTPClient (depending on platform)
-- ArduinoJson
-
-## Credits
-
-Weather icons based on designs from https://github.com/basmilius/weather-icons
+This project is licensed under the MIT License - see the LICENSE file for details.

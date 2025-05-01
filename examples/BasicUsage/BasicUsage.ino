@@ -1,33 +1,30 @@
 /*
- * Basic OLED Usage Example for WeatherAnimations Library
+ * Basic OLED Usage Example for WeatherAnimations Library with SH1106 Display
  * 
  * This example demonstrates how to initialize the WeatherAnimations library,
- * connect to Home Assistant, and display weather animations on an OLED display.
+ * connect to Home Assistant, and display weather animations on an SH1106 OLED display.
+ * 
+ * Hardware requirements:
+ * - ESP32 board
+ * - SH1106 OLED display (I2C, typically at address 0x3C)
+ * - 3 push buttons (connected to the pins defined below)
+ * 
+ * Required Libraries:
+ * - Adafruit GFX Library
+ * - Adafruit SH110X
+ * - WeatherAnimations
  * 
  * Setup:
  * 1. Copy examples/config_example.h to examples/BasicUsage/config.h
  * 2. Edit config.h with your WiFi and Home Assistant credentials
- * 
- * For development:
- * To use the local library source code instead of an installed version:
- * 1. In Arduino IDE: Sketch > Include Library > Add .ZIP Library...
- * 2. Navigate to the root directory of this project
- * 3. Click "Open" (without creating a zip file)
- * This will create a temporary reference to the local library source code
  */
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SH110X.h>
 
 // Include the library source files directly for development
 #include "../../src/WeatherAnimations.h"
-#include "../../src/WeatherAnimations.cpp"
-#include "../../src/WeatherAnimationsAnimations.h"
-#include "../../src/WeatherAnimationsAnimations.cpp"
-#include "../../src/WeatherAnimationsIcons.h"
-#include "../../src/WeatherAnimationsIcons.cpp"
-
-// Include the library source files as a zip file
-// #include <WeatherAnimations.h>
-
-#include <Arduino.h>
 
 // Try to include the configuration file
 // If it doesn't exist, we'll use default values
@@ -39,7 +36,7 @@
 // Define button pins
 const int encoderPUSH = 27; // Button to cycle through animations
 const int backButton = 14;  // Button to return to live HA data
-const int leftButton = 12; //switch from fixed to animated
+const int leftButton = 12;  // Button to switch from fixed to animated
 
 // Animation mode flag
 bool animatedMode = false; // Start with static mode
@@ -104,14 +101,45 @@ const unsigned long debounceDelay = 50;
 	const int oledAddress = OLED_ADDRESS;
 #endif
 
+// Create SH1106 display instance - width, height, address, reset pin
+Adafruit_SH1106G display(128, 64, &Wire, -1);
+
 // Create WeatherAnimations instance
 WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
 
+// Function to get weather type name
+const char* getWeatherTypeName(uint8_t weatherType) {
+	switch(weatherType) {
+		case WEATHER_CLEAR: return "CLEAR";
+		case WEATHER_CLOUDY: return "CLOUDY";
+		case WEATHER_RAIN: return "RAIN";
+		case WEATHER_SNOW: return "SNOW";
+		case WEATHER_STORM: return "STORM";
+		default: return "UNKNOWN";
+	}
+}
+
+// Function to display current state on serial
+void printCurrentState() {
+	Serial.println("\n----- Current State -----");
+	Serial.print("Mode: ");
+	Serial.println(manualMode ? "MANUAL" : "LIVE DATA");
+	Serial.print("Animation Type: ");
+	Serial.println(animatedMode ? "ANIMATED" : "STATIC");
+	
+	if (manualMode) {
+		Serial.print("Current Weather: ");
+		Serial.println(getWeatherTypeName(WEATHER_TYPES[currentWeatherIndex]));
+	}
+	Serial.println("------------------------");
+}
+
 void setup() {
-	// Initialize serial for debugging (if available on your board)
-	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+	// Initialize serial for debugging
 	Serial.begin(115200);
-	Serial.println("Starting WeatherAnimations OLED example");
+	Serial.println("\n\n===================================");
+	Serial.println("WeatherAnimations SH1106 ESP32 Example");
+	Serial.println("===================================");
 	
 	#ifdef CONFIG_EXISTS
 	Serial.println("Using configuration from config.h");
@@ -119,30 +147,38 @@ void setup() {
 	Serial.println("WARNING: No config.h found. Using default values.");
 	Serial.println("Copy config_example.h to config.h and customize it.");
 	#endif
-	#endif
 	
 	// Initialize button pins
 	pinMode(encoderPUSH, INPUT_PULLUP);
 	pinMode(backButton, INPUT_PULLUP);
 	pinMode(leftButton, INPUT_PULLUP);
 	
-	// Initialize the library with OLED display
-	// Parameters: display type, I2C address (typically 0x3C or 0x3D), manage WiFi connection
+	// Initialize the SH1106 OLED display
+	delay(250); // Wait for the display to power up
+	Serial.println("Initializing SH1106 OLED display...");
+	display.begin(oledAddress, true); // Address, reset
+	display.clearDisplay();
+	display.setTextSize(1);
+	display.setTextColor(SH110X_WHITE);
+	display.setCursor(0, 0);
+	display.println("Starting...");
+	display.display();
+	Serial.println("SH1106 OLED display initialized successfully");
+	
+	// Initialize the WeatherAnimations library
+	Serial.println("Initializing WeatherAnimations library...");
 	weatherAnim.begin(OLED_SH1106, oledAddress, true);
 	
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
 	
 	// Set mode to continuous weather display
-	// Options: CONTINUOUS_WEATHER or SIMPLE_TRANSITION
 	weatherAnim.setMode(CONTINUOUS_WEATHER);
 	
-	// Set animation mode to static initially
-	// Can be toggled with left button
-	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED); // Use embedded fallback animations for testing
+	// Start with embedded animations for testing
+	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
 	
-	// Set base URLs for online animations (used when in ANIMATION_ONLINE mode)
-	// These URLs point to the base paths of our animation frames
+	// Set base URLs for online animations
 	const char* clearSkyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
 	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
 	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
@@ -156,82 +192,62 @@ void setup() {
 	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
 	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
 	
-	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 	Serial.println("Setup complete, starting weather updates...");
-	#endif
+	
+	// Show initial state
+	printCurrentState();
+	
+	// Start with the first weather animation
+	weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
 }
 
 void handleButtons() {
-	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	// Removed constant logging to reduce noise
-	#endif
 	// Read current button states
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
 	bool leftButtonState = digitalRead(leftButton);
-	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	// Log only if a button state has changed
-	if (encoderPushState != lastEncoderPushState || backButtonState != lastBackButtonState || leftButtonState != lastLeftButtonState) {
-		Serial.print("Button states - Encoder: ");
-		Serial.print(encoderPushState);
-		Serial.print(", Back: ");
-		Serial.print(backButtonState);
-		Serial.print(", Left: ");
-		Serial.println(leftButtonState);
-	}
-	#endif
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
 		lastEncoderDebounceTime = millis();
-		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-		Serial.println("Encoder button state changed.");
-		#endif
 	}
 	
-	// Check if debounce delay has passed for encoder
-	if (true || (millis() - lastEncoderDebounceTime) > debounceDelay) {
+	if ((millis() - lastEncoderDebounceTime) > debounceDelay) {
 		// If the push button state has changed and is now LOW (pressed)
 		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
-			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-			Serial.println("Encoder button pressed - attempting to cycle animation.");
-			#endif
+			Serial.println("\n>>> ENCODER BUTTON PRESSED");
 			// Enter manual mode if not already
 			manualMode = true;
 			
 			// Cycle to next weather type
 			currentWeatherIndex = (currentWeatherIndex + 1) % WEATHER_TYPE_COUNT;
 			
-			// Display the selected animation
+			// Display the selected animation with right to left transition
 			weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_RIGHT_TO_LEFT, 500);
 			
-			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-			Serial.print("Manual mode: Showing animation ");
-			Serial.println(currentWeatherIndex);
-			#endif
+			Serial.print("Changed to weather type: ");
+			Serial.println(getWeatherTypeName(WEATHER_TYPES[currentWeatherIndex]));
+			
+			// Show current state
+			printCurrentState();
 		}
 	}
 	
 	// Handle back button (with debounce)
 	if (backButtonState != lastBackButtonState) {
 		lastBackDebounceTime = millis();
-		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-		Serial.println("Back button state changed.");
-		#endif
 	}
 	
 	if ((millis() - lastBackDebounceTime) > debounceDelay) {
 		// If the back button state has changed and is now LOW (pressed)
 		if (backButtonState == LOW && lastBackButtonState == HIGH) {
-			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-			Serial.println("Back button pressed - attempting to return to live data.");
-			#endif
-			// Exit manual mode
+			Serial.println("\n>>> BACK BUTTON PRESSED");
+			
+			// Exit manual mode if currently in it
 			if (manualMode) {
 				manualMode = false;
-				#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-				Serial.println("Returning to live weather data");
-				#endif
+				Serial.println("Switching to LIVE weather data mode");
+				printCurrentState();
 			}
 		}
 	}
@@ -239,32 +255,29 @@ void handleButtons() {
 	// Handle left button (with debounce)
 	if (leftButtonState != lastLeftButtonState) {
 		lastLeftDebounceTime = millis();
-		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-		Serial.println("Left button state changed.");
-		#endif
 	}
 	
 	if ((millis() - lastLeftDebounceTime) > debounceDelay) {
 		// If the left button state has changed and is now LOW (pressed)
 		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
-			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-			Serial.println("Left button pressed - attempting to toggle animation mode.");
-			#endif
+			Serial.println("\n>>> LEFT BUTTON PRESSED");
+			
 			// Toggle animation mode
 			animatedMode = !animatedMode;
 			
-			// Set the animation mode
+			// Set the animation mode in the library
 			weatherAnim.setAnimationMode(animatedMode ? ANIMATION_ONLINE : ANIMATION_STATIC);
 			
-			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 			Serial.print("Animation mode changed to: ");
-			Serial.println(animatedMode ? "Online/Animated" : "Static");
-			#endif
+			Serial.println(animatedMode ? "ANIMATED" : "STATIC");
 			
-			// Force a refresh of the current display
+			// Force a refresh of the current display with fade transition
 			if (manualMode) {
 				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
 			}
+			
+			// Show current state
+			printCurrentState();
 		}
 	}
 	
@@ -275,9 +288,6 @@ void handleButtons() {
 }
 
 void loop() {
-	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
-	// Removed constant logging to reduce noise
-	#endif
 	// Check button states
 	handleButtons();
 	
