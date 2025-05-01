@@ -17,8 +17,17 @@
  * 3. Click "Open" (without creating a zip file)
  * This will create a temporary reference to the local library source code
  */
+// Include the library source files directly for development
+#include "../../src/WeatherAnimations.h"
+#include "../../src/WeatherAnimations.cpp"
+#include "../../src/WeatherAnimationsAnimations.h"
+#include "../../src/WeatherAnimationsAnimations.cpp"
+#include "../../src/WeatherAnimationsIcons.h"
+#include "../../src/WeatherAnimationsIcons.cpp"
 
-#include <WeatherAnimations.h>
+// Include the library source files as a zip file
+// #include <WeatherAnimations.h>
+
 #include <Arduino.h>
 
 // Try to include the configuration file
