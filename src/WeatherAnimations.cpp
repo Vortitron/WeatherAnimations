@@ -20,6 +20,8 @@
 
 #include "WeatherAnimationsAnimations.h"
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#include <U8g2lib.h>
 
 // Default OLED dimensions
 #define SCREEN_WIDTH 128
@@ -34,6 +36,8 @@ Adafruit_SSD1306* oledDisplay = nullptr;
 #if defined(ESP8266) || defined(ESP32)
 TFT_eSPI* tftDisplay = nullptr;
 #endif
+
+U8G2_SH1106_128X64_NONAME_F_HW_I2C* u8g2 = nullptr;
 
 WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, const char* haIP, const char* haToken)
     : _ssid(ssid), _password(password), _haIP(haIP), _haToken(haToken),
@@ -418,6 +422,23 @@ void WeatherAnimations::displayAnimation() {
         }
         WA_SERIAL_PRINTLN("Updating OLED display.");
         oledDisplay->display();
+    } else if (_displayType == OLED_SH1106 && u8g2 != nullptr) {
+        u8g2->clearBuffer();
+        if (_animations[_currentWeather].frameCount > 0) {
+            uint8_t frameIndex = (millis() / _animations[_currentWeather].frameDelay) % _animations[_currentWeather].frameCount;
+            const uint8_t* frameData = _animations[_currentWeather].frames[frameIndex];
+            if (frameData != nullptr) {
+                u8g2->drawBitmap(0, 0, SCREEN_WIDTH / 8, SCREEN_HEIGHT, frameData);
+                WA_SERIAL_PRINTLN("Drawing frame " + String(frameIndex) + " on SH1106 display.");
+            } else {
+                WA_SERIAL_PRINTLN("Frame data is null, falling back to text display.");
+                displayTextFallback(_currentWeather);
+            }
+        } else {
+            displayTextFallback(_currentWeather);
+        }
+        u8g2->sendBuffer();
+        WA_SERIAL_PRINTLN("Updating SH1106 display.");
     } else if (_displayType == TFT_DISPLAY) {
         #if defined(ESP8266) || defined(ESP32)
         if (tftDisplay != nullptr) {
@@ -701,6 +722,10 @@ void WeatherAnimations::initDisplay() {
             delete oledDisplay;
             oledDisplay = nullptr;
         }
+    } else if (_displayType == OLED_SH1106) {
+        u8g2 = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+        u8g2->begin();
+        WA_SERIAL_PRINTLN("SH1106 display initialized.");
     } else if (_displayType == TFT_DISPLAY) {
         #if defined(ESP8266) || defined(ESP32)
         tftDisplay = new TFT_eSPI();
@@ -883,9 +908,45 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
             }
         }
         oledDisplay->display();
-    } 
-    #if defined(ESP8266) || defined(ESP32)
-    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+    } else if (_displayType == OLED_SH1106 && u8g2 != nullptr) {
+        u8g2->clearBuffer();
+        if (_animations[weatherCondition].frameCount > 0) {
+            const uint8_t* frameData = _animations[weatherCondition].frames[0];
+            int16_t width = SCREEN_WIDTH;
+            int16_t height = SCREEN_HEIGHT;
+            int16_t x = 0;
+            int16_t y = 0;
+            switch (_transitionDirection) {
+                case TRANSITION_RIGHT_TO_LEFT:
+                    x = width * (1.0f - progress);
+                    break;
+                case TRANSITION_LEFT_TO_RIGHT:
+                    x = -width * (1.0f - progress);
+                    break;
+                case TRANSITION_TOP_TO_BOTTOM:
+                    y = -height * (1.0f - progress);
+                    break;
+                case TRANSITION_BOTTOM_TO_TOP:
+                    y = height * (1.0f - progress);
+                    break;
+                case TRANSITION_FADE:
+                    u8g2->drawBitmap(0, 0, width / 8, height, frameData);
+                    for (int16_t i = 0; i < height; i += 2) {
+                        int16_t barHeight = max((int16_t)1, (int16_t)(2 * (1.0f - progress)));
+                        if (i % 4 < barHeight) {
+                            u8g2->drawBox(0, i, width, 1);
+                        }
+                    }
+                    break;
+            }
+            if (_transitionDirection != TRANSITION_FADE) {
+                u8g2->drawBitmap(x, y, width / 8, height, frameData);
+            }
+        } else {
+            displayTextFallback(weatherCondition);
+        }
+        u8g2->sendBuffer();
+    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
         // For TFT display, we'll implement a simple transition
         // This is a basic implementation - you can enhance it with more complex animations
         
@@ -1013,7 +1074,18 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
             }
         }
     }
-    #endif
+}
+
+void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
+    if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
+        // ... existing code ...
+    } else if (_displayType == OLED_SH1106 && u8g2 != nullptr) {
+        u8g2->setFont(u8g2_font_ncenB08_tr);
+        u8g2->setDrawColor(1);
+        u8g2->drawStr(0, 10, getWeatherText(weatherCondition));
+    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+        // ... existing code ...
+    }
 }
 
 WeatherAnimations::~WeatherAnimations() {
@@ -1021,13 +1093,13 @@ WeatherAnimations::~WeatherAnimations() {
     if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
         delete oledDisplay;
         oledDisplay = nullptr;
-    }
-    #if defined(ESP8266) || defined(ESP32)
-    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+    } else if (_displayType == OLED_SH1106 && u8g2 != nullptr) {
+        delete u8g2;
+        u8g2 = nullptr;
+    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
         delete tftDisplay;
         tftDisplay = nullptr;
     }
-    #endif
     
     // Clean up online animation cache
     for (int i = 0; i < 5; i++) {

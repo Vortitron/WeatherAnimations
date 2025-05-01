@@ -39,7 +39,8 @@
 
 // Define display types
 #define OLED_DISPLAY 0
-#define TFT_DISPLAY 1
+#define OLED_SH1106 1
+#define TFT_DISPLAY 2
 
 // Define operation modes
 #define SIMPLE_TRANSITION 1

@@ -43,7 +43,6 @@ const int leftButton = 12; //switch from fixed to animated
 
 // Animation mode flag
 bool animatedMode = false; // Start with static mode
-bool lastLeftButtonState = HIGH;
 
 // Weather condition constants
 const uint8_t WEATHER_TYPES[] = {
@@ -129,7 +128,7 @@ void setup() {
 	
 	// Initialize the library with OLED display
 	// Parameters: display type, I2C address (typically 0x3C or 0x3D), manage WiFi connection
-	weatherAnim.begin(OLED_DISPLAY, oledAddress, true);
+	weatherAnim.begin(OLED_SH1106, oledAddress, true);
 	
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
@@ -191,7 +190,7 @@ void handleButtons() {
 	}
 	
 	// Check if debounce delay has passed for encoder
-	if ((millis() - lastEncoderDebounceTime) > debounceDelay) {
+	if (true || (millis() - lastEncoderDebounceTime) > debounceDelay) {
 		// If the push button state has changed and is now LOW (pressed)
 		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
