@@ -78,7 +78,7 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 		return false;
 	}
 	
-	bool success = true;
+	bool anySuccess = false;
 	char fullURL[150];
 	
 	for (int i = 0; i < frameCount; i++) {
@@ -96,8 +96,8 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 		if (httpCode != 200) {
 			Serial.print("HTTP Error: ");
 			Serial.println(httpCode);
-			success = false;
 			http.end();
+			// Continue to the next frame rather than failing completely
 			continue;
 		}
 		
@@ -106,7 +106,6 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 		uint8_t* pngData = new uint8_t[pngSize];
 		if (!pngData) {
 			Serial.println("Failed to allocate memory for PNG data");
-			success = false;
 			http.end();
 			continue;
 		}
@@ -125,44 +124,60 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 		if (bytesRead != pngSize) {
 			Serial.println("Failed to read complete PNG data");
 			delete[] pngData;
-			success = false;
 			continue;
 		}
 		
 		// Convert PNG to bitmap
 		if (!pngToBitmap(pngData, pngSize, frames[i], frameSize)) {
 			Serial.println("Failed to convert PNG to bitmap");
-			success = false;
+		} else {
+			anySuccess = true;
 		}
 		
 		// Clean up
 		delete[] pngData;
 	}
 	
-	return success;
+	return anySuccess;
 }
 
 // Initialize all animations from online resources
 bool initializeAnimationsFromOnline() {
-	bool success = true;
+	bool allSuccess = true;
+	bool anySuccess = false;
 	
 	// Fetch frames for each weather condition
 	Serial.println("Fetching clear sky frames...");
-	success &= fetchAnimationFrames(CLEAR_SKY_URL, (uint8_t**)clearSkyFrames, 2, 1024);
+	bool clearSuccess = fetchAnimationFrames(CLEAR_SKY_URL, (uint8_t**)clearSkyFrames, 2, 1024);
+	allSuccess &= clearSuccess;
+	anySuccess |= clearSuccess;
 	
 	Serial.println("Fetching cloudy frames...");
-	success &= fetchAnimationFrames(CLOUDY_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
+	bool cloudySuccess = fetchAnimationFrames(CLOUDY_URL, (uint8_t**)cloudySkyFrames, 2, 1024);
+	allSuccess &= cloudySuccess;
+	anySuccess |= cloudySuccess;
 	
 	Serial.println("Fetching rain frames...");
-	success &= fetchAnimationFrames(RAIN_URL, (uint8_t**)rainFrames, 3, 1024);
+	bool rainSuccess = fetchAnimationFrames(RAIN_URL, (uint8_t**)rainFrames, 3, 1024);
+	allSuccess &= rainSuccess;
+	anySuccess |= rainSuccess;
 	
 	Serial.println("Fetching snow frames...");
-	success &= fetchAnimationFrames(SNOW_URL, (uint8_t**)snowFrames, 3, 1024);
+	bool snowSuccess = fetchAnimationFrames(SNOW_URL, (uint8_t**)snowFrames, 3, 1024);
+	allSuccess &= snowSuccess;
+	anySuccess |= snowSuccess;
 	
 	Serial.println("Fetching storm frames...");
-	success &= fetchAnimationFrames(STORM_URL, (uint8_t**)stormFrames, 2, 1024);
+	bool stormSuccess = fetchAnimationFrames(STORM_URL, (uint8_t**)stormFrames, 2, 1024);
+	allSuccess &= stormSuccess;
+	anySuccess |= stormSuccess;
 	
-	return success;
+	if (!allSuccess) {
+		Serial.println("Some animations failed to load completely");
+	}
+	
+	// Return true if at least some frames were loaded successfully
+	return anySuccess;
 }
 
 // Fallback function to generate simple animations if online fetch fails
