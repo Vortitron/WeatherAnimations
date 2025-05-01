@@ -7,10 +7,16 @@
  * Setup:
  * 1. Copy examples/config_example.h to examples/BasicUsage/config.h
  * 2. Edit config.h with your WiFi and Home Assistant credentials
+ * 
+ * For development:
+ * To use the local library source code instead of an installed version:
+ * 1. In Arduino IDE: Sketch > Include Library > Add .ZIP Library...
+ * 2. Navigate to the root directory of this project
+ * 3. Click "Open" (without creating a zip file)
+ * This will create a temporary reference to the local library source code
  */
 
-// Include the local library source directly
-#include "../../src/WeatherAnimations.h"
+#include <WeatherAnimations.h>
 #include <Arduino.h>
 
 // Try to include the configuration file
