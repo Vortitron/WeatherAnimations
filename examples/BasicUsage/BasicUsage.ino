@@ -9,7 +9,8 @@
  * 2. Edit config.h with your WiFi and Home Assistant credentials
  */
 
-#include <WeatherAnimations.h>
+// Include the local library source directly
+#include "../../src/WeatherAnimations.h"
 #include <Arduino.h>
 
 // Try to include the configuration file
