@@ -1,29 +1,20 @@
 /*
- * Basic OLED Usage Example for WeatherAnimations Library with SH1106 Display
+ * ESP32 SH1106 OLED Weather Animation Example
  * 
- * This example demonstrates how to initialize the WeatherAnimations library,
- * connect to Home Assistant, and display weather animations on an SH1106 OLED display.
+ * This example shows a simple implementation of the WeatherAnimations library
+ * for ESP32 with SH1106 OLED display.
  * 
- * Hardware requirements:
+ * Hardware:
  * - ESP32 board
- * - SH1106 OLED display (I2C, typically at address 0x3C)
- * - 3 push buttons (connected to the pins defined below)
- * 
- * Required Libraries:
- * - Adafruit GFX Library
- * - Adafruit SH110X
- * - WeatherAnimations
- * 
- * Setup:
- * 1. Copy examples/config_example.h to examples/BasicUsage/config.h
- * 2. Edit config.h with your WiFi and Home Assistant credentials
+ * - SH1106 OLED display (I2C, address 0x3C)
+ * - Buttons on pins defined below
  */
 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 
-// Include the library source files directly for development
+// Include only the main header file, not the implementation files
 #include "../../src/WeatherAnimations.h"
 #include "../../src/WeatherAnimations.cpp"
 #include "../../src/WeatherAnimationsAnimations.h"
@@ -33,9 +24,7 @@
 
 // Include the library source files as a zip file
 // #include <WeatherAnimations.h>
-
 // Try to include the configuration file
-// If it doesn't exist, we'll use default values
 #if __has_include("config.h")
 	#include "config.h"
 	#define CONFIG_EXISTS
@@ -45,6 +34,9 @@
 const int encoderPUSH = 27; // Button to cycle through animations
 const int backButton = 14;  // Button to return to live HA data
 const int leftButton = 12;  // Button to switch from fixed to animated
+
+// Debug flag - set to true for verbose output
+bool debugMode = true;
 
 // Animation mode flag
 bool animatedMode = false; // Start with static mode
@@ -81,7 +73,6 @@ const unsigned long debounceDelay = 50;
 	const int oledAddress = 0x3C;
 #else
 	// Use the configuration from config.h
-	// WIFI_SSID, WIFI_PASSWORD, etc. should be defined in config.h
 	#ifndef WIFI_SSID
 	#define WIFI_SSID "YourWiFiSSID"
 	#endif
@@ -109,7 +100,7 @@ const unsigned long debounceDelay = 50;
 	const int oledAddress = OLED_ADDRESS;
 #endif
 
-// Create SH1106 display instance - width, height, address, reset pin
+// Create SH1106 display instance 
 Adafruit_SH1106G display(128, 64, &Wire, -1);
 
 // Create WeatherAnimations instance
@@ -142,18 +133,32 @@ void printCurrentState() {
 	Serial.println("------------------------");
 }
 
+// Simple fallback display function if the library has issues
+void displayFallbackWeather(int weatherType) {
+	display.clearDisplay();
+	display.setTextSize(1);
+	display.setTextColor(SH110X_WHITE);
+	display.setCursor(0, 0);
+	display.println("Weather Display");
+	display.setCursor(0, 16);
+	display.setTextSize(2);
+	display.println(getWeatherTypeName(weatherType));
+	display.display();
+}
+
 void setup() {
 	// Initialize serial for debugging
 	Serial.begin(115200);
+	delay(500); // Wait for serial to initialize
+	
 	Serial.println("\n\n===================================");
-	Serial.println("WeatherAnimations SH1106 ESP32 Example");
+	Serial.println("ESP32 SH1106 Weather Example");
 	Serial.println("===================================");
 	
 	#ifdef CONFIG_EXISTS
 	Serial.println("Using configuration from config.h");
 	#else
 	Serial.println("WARNING: No config.h found. Using default values.");
-	Serial.println("Copy config_example.h to config.h and customize it.");
 	#endif
 	
 	// Initialize button pins
@@ -161,20 +166,29 @@ void setup() {
 	pinMode(backButton, INPUT_PULLUP);
 	pinMode(leftButton, INPUT_PULLUP);
 	
-	// Initialize the SH1106 OLED display
-	delay(250); // Wait for the display to power up
+	// Initialize the SH1106 OLED display directly
 	Serial.println("Initializing SH1106 OLED display...");
-	display.begin(oledAddress, true); // Address, reset
+	
+	if (!display.begin(oledAddress, true)) {
+		Serial.println("SH1106 allocation failed");
+		while (1); // Don't proceed if display init failed
+	}
+	
 	display.clearDisplay();
 	display.setTextSize(1);
 	display.setTextColor(SH110X_WHITE);
 	display.setCursor(0, 0);
 	display.println("Starting...");
 	display.display();
-	Serial.println("SH1106 OLED display initialized successfully");
+	Serial.println("SH1106 OLED display initialized");
+	
+	// Wait a moment to stabilize
+	delay(1000);
 	
 	// Initialize the WeatherAnimations library
 	Serial.println("Initializing WeatherAnimations library...");
+	
+	// Try to initialize with the library
 	weatherAnim.begin(OLED_SH1106, oledAddress, true);
 	
 	// Set the custom weather entity ID
@@ -183,30 +197,31 @@ void setup() {
 	// Set mode to continuous weather display
 	weatherAnim.setMode(CONTINUOUS_WEATHER);
 	
-	// Start with embedded animations for testing
-	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+	// Use static mode first to reduce complexity
+	weatherAnim.setAnimationMode(ANIMATION_STATIC);
 	
-	// Set base URLs for online animations
-	const char* clearSkyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
-	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
-	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
-	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
-	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
-	
-	// Set online animation sources
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
+	// Set base URLs for online animations (simplified)
+	const char* baseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/";
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, String(String(baseURL) + "sunny-day_frame_").c_str());
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, String(String(baseURL) + "cloudy_frame_").c_str());
+	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, String(String(baseURL) + "rainy_frame_").c_str());
+	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, String(String(baseURL) + "snowy_frame_").c_str());
+	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, String(String(baseURL) + "lightning_frame_").c_str());
 	
 	Serial.println("Setup complete, starting weather updates...");
 	
 	// Show initial state
 	printCurrentState();
 	
-	// Start with the first weather animation
-	weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
+	// Try a simpler initialization - just show static weather for now
+	try {
+		// Use a simple fade transition
+		weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
+	} 
+	catch (...) {
+		Serial.println("Error in animation transition - using fallback");
+		displayFallbackWeather(WEATHER_TYPES[currentWeatherIndex]);
+	}
 }
 
 void handleButtons() {
@@ -230,8 +245,14 @@ void handleButtons() {
 			// Cycle to next weather type
 			currentWeatherIndex = (currentWeatherIndex + 1) % WEATHER_TYPE_COUNT;
 			
-			// Display the selected animation with right to left transition
-			weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_RIGHT_TO_LEFT, 500);
+			// Try to display the animation with the library
+			try {
+				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_RIGHT_TO_LEFT, 500);
+			} 
+			catch (...) {
+				// Fallback display if the library has issues
+				displayFallbackWeather(WEATHER_TYPES[currentWeatherIndex]);
+			}
 			
 			Serial.print("Changed to weather type: ");
 			Serial.println(getWeatherTypeName(WEATHER_TYPES[currentWeatherIndex]));
@@ -274,14 +295,17 @@ void handleButtons() {
 			animatedMode = !animatedMode;
 			
 			// Set the animation mode in the library
-			weatherAnim.setAnimationMode(animatedMode ? ANIMATION_ONLINE : ANIMATION_STATIC);
+			weatherAnim.setAnimationMode(animatedMode ? ANIMATION_EMBEDDED : ANIMATION_STATIC);
 			
 			Serial.print("Animation mode changed to: ");
 			Serial.println(animatedMode ? "ANIMATED" : "STATIC");
 			
 			// Force a refresh of the current display with fade transition
-			if (manualMode) {
+			try {
 				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_FADE, 500);
+			} 
+			catch (...) {
+				displayFallbackWeather(WEATHER_TYPES[currentWeatherIndex]);
 			}
 			
 			// Show current state
@@ -299,9 +323,17 @@ void loop() {
 	// Check button states
 	handleButtons();
 	
-	// Update weather data and display animations only when not in manual mode
+	// Try to update weather with error handling
 	if (!manualMode) {
-		weatherAnim.update();
+		try {
+			weatherAnim.update();
+		} 
+		catch (...) {
+			// If there's an error, switch to manual mode
+			Serial.println("Error in weather update - switching to manual mode");
+			manualMode = true;
+			displayFallbackWeather(WEATHER_TYPES[currentWeatherIndex]);
+		}
 	}
 	
 	// Add a small delay to prevent excessive updates

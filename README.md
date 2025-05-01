@@ -112,6 +112,52 @@ If you can't connect to Home Assistant:
 - Check that your Home Assistant token has the necessary permissions
 - Make sure the weather entity exists and is accessible
 
+### Crash During Animation
+
+If your ESP32 crashes or freezes during animation display:
+
+1. **Library Conflicts**: There might be conflicts between U8g2 and Adafruit libraries. Try the `BasicDisplay` example first to verify your display is working correctly.
+
+2. **Memory Issues**: The WeatherAnimations library uses both U8g2 and the Adafruit libraries which can consume significant memory. Solutions:
+   - Use `ANIMATION_STATIC` mode instead of animated modes
+   - Don't include implementation files directly in your sketch. Instead, install the library properly through the Arduino Library Manager
+   - Add error handling with try/catch blocks around animation calls
+
+3. **Display Initialization**: If you get a blank screen or noise:
+   - Make sure to initialize the display with the correct address
+   - Add a delay (200-300ms) after display initialization
+   - Try different I2C speed settings
+
+4. **Alternative Approach**: If animations still don't work:
+   - Use the `BasicDisplay` example which doesn't use the animation features
+   - Create your own simple weather display using just the Adafruit SH110X library
+   - Consider modifying the library to use only one display driver (either U8g2 or Adafruit)
+
+### Using Only Adafruit Libraries
+
+For a more reliable setup, you can create a simpler weather display using just the Adafruit libraries:
+
+```arduino
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SH110X.h>
+
+// Create display
+Adafruit_SH1106G display(128, 64, &Wire, -1);
+
+void setup() {
+  // Initialize display
+  display.begin(0x3C, true);
+  display.clearDisplay();
+  
+  // Display weather
+  display.setTextSize(2);
+  display.setTextColor(SH110X_WHITE);
+  display.println("SUNNY");
+  display.display();
+}
+```
+
 ## Contributing
 
 Contributions to improve the library are welcome. Please submit pull requests with clear descriptions of the changes and benefits.
