@@ -912,7 +912,56 @@ void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
         u8g2->setDrawColor(1);
         u8g2->drawStr(0, 10, getWeatherText(weatherCondition));
     } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
-        // ... existing code ...
+        tftDisplay->fillScreen(TFT_BLACK);
+        tftDisplay->setCursor(10, 10);
+        tftDisplay->setTextColor(TFT_WHITE);
+        tftDisplay->setTextSize(2);
+        
+        switch (weatherCondition) {
+            case WEATHER_CLEAR:
+                tftDisplay->println("Clear Sky");
+                tftDisplay->fillCircle(120, 160, 40, TFT_YELLOW);
+                break;
+            case WEATHER_CLOUDY:
+                tftDisplay->println("Cloudy");
+                tftDisplay->fillRoundRect(80, 140, 100, 40, 20, TFT_WHITE);
+                break;
+            case WEATHER_RAIN:
+                tftDisplay->println("Rainy");
+                tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_LIGHTGREY);
+                for (int i = 0; i < 10; i++) {
+                    tftDisplay->drawLine(90 + i*10, 170, 90 + i*10 + 5, 190, TFT_BLUE);
+                }
+                break;
+            case WEATHER_SNOW:
+                tftDisplay->println("Snowy");
+                tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_LIGHTGREY);
+                for (int i = 0; i < 10; i++) {
+                    tftDisplay->drawPixel(90 + i*10, 180, TFT_WHITE);
+                    tftDisplay->drawPixel(90 + i*10 + 1, 180, TFT_WHITE);
+                    tftDisplay->drawPixel(90 + i*10, 180 + 1, TFT_WHITE);
+                    tftDisplay->drawPixel(90 + i*10 + 1, 180 + 1, TFT_WHITE);
+                }
+                break;
+            case WEATHER_STORM:
+                tftDisplay->println("Stormy");
+                tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_DARKGREY);
+                tftDisplay->fillTriangle(120, 170, 130, 200, 110, 190, TFT_YELLOW);
+                break;
+            default:
+                tftDisplay->println("Unknown");
+        }
+    }
+}
+
+const char* WeatherAnimations::getWeatherText(uint8_t weatherCondition) {
+    switch (weatherCondition) {
+        case WEATHER_CLEAR:   return "Clear Sky";
+        case WEATHER_CLOUDY:  return "Cloudy";
+        case WEATHER_RAIN:    return "Rainy";
+        case WEATHER_SNOW:    return "Snowy";
+        case WEATHER_STORM:   return "Stormy";
+        default:              return "Unknown";
     }
 }
 
