@@ -116,17 +116,27 @@ void WeatherAnimations::setAnimationMode(uint8_t animationMode) {
 }
 
 void WeatherAnimations::update() {
+    WA_SERIAL_PRINTLN("Update loop running.");
     // Fetch new weather data if connected and cooldown period has passed
     if (WiFi.status() == WL_CONNECTED) {
         unsigned long currentTime = millis();
         if (currentTime - _lastFetchTime >= _fetchCooldown) {
+            WA_SERIAL_PRINTLN("Attempting to fetch weather data...");
             if (fetchWeatherData()) {
                 _lastFetchTime = currentTime;
+                WA_SERIAL_PRINTLN("Weather data fetched successfully.");
+            } else {
+                WA_SERIAL_PRINTLN("Failed to fetch weather data.");
             }
+        } else {
+            WA_SERIAL_PRINTLN("Waiting for cooldown period to fetch new data.");
         }
+    } else {
+        WA_SERIAL_PRINTLN("WiFi not connected, skipping weather data fetch.");
     }
     
     // Display animation based on current weather and mode
+    WA_SERIAL_PRINTLN("Updating display with current weather animation.");
     displayAnimation();
 }
 
@@ -308,13 +318,17 @@ bool WeatherAnimations::fetchWeatherData() {
 }
 
 void WeatherAnimations::displayAnimation() {
+    WA_SERIAL_PRINTLN("Entering displayAnimation method.");
     // If currently in transition mode, handle that instead of normal display
     if (_isTransitioning) {
+        WA_SERIAL_PRINTLN("Handling transition animation.");
         unsigned long currentTime = millis();
         unsigned long elapsedTime = currentTime - _transitionStartTime;
         
         // Calculate progress (0.0 to 1.0)
         float progress = min(1.0f, (float)elapsedTime / _transitionDuration);
+        WA_SERIAL_PRINT("Transition progress: ");
+        WA_SERIAL_PRINTLN(progress);
         
         // Display the transition frame
         displayTransitionFrame(_currentWeather, progress);
@@ -322,17 +336,22 @@ void WeatherAnimations::displayAnimation() {
         // End transition when complete
         if (progress >= 1.0f) {
             _isTransitioning = false;
+            WA_SERIAL_PRINTLN("Transition completed.");
         }
         
         return;
     }
     
+    WA_SERIAL_PRINTLN("Handling regular animation display.");
     // Regular animation display based on animation mode
     if (_displayType == OLED_DISPLAY && oledDisplay != nullptr) {
+        WA_SERIAL_PRINTLN("Clearing OLED display.");
         oledDisplay->clearDisplay();
         
         // Check if animation is set for current weather
         if (_animations[_currentWeather].frameCount > 0) {
+            WA_SERIAL_PRINT("Animation available for weather condition: ");
+            WA_SERIAL_PRINTLN(_currentWeather);
             unsigned long currentTime = millis();
             
             // For embedded animations, we need to handle frame timing
@@ -341,37 +360,46 @@ void WeatherAnimations::displayAnimation() {
                     // For static mode, only use the first frame
                     if (_animationMode == ANIMATION_STATIC) {
                         _currentFrame = 0;
+                        WA_SERIAL_PRINTLN("Static mode: Using first frame.");
                     } else {
                         // For embedded animations, cycle through frames
                         _currentFrame = (_currentFrame + 1) % _animations[_currentWeather].frameCount;
+                        WA_SERIAL_PRINT("Embedded mode: Switching to frame ");
+                        WA_SERIAL_PRINTLN(_currentFrame);
                     }
                     _lastFrameTime = currentTime;
                 }
                 
                 // Draw the current frame
+                WA_SERIAL_PRINT("Drawing frame ");
+                WA_SERIAL_PRINT(_currentFrame);
+                WA_SERIAL_PRINTLN(" on OLED display.");
                 oledDisplay->drawBitmap(0, 0, _animations[_currentWeather].frames[_currentFrame], 
                                        SCREEN_WIDTH, SCREEN_HEIGHT, WHITE);
                 
                 // In simple transition mode, stop after one cycle
                 if (_mode == SIMPLE_TRANSITION && _currentFrame == 0 && 
                     _animationMode == ANIMATION_EMBEDDED) {
+                    WA_SERIAL_PRINTLN("Simple transition mode: Clearing display after one cycle.");
                     oledDisplay->clearDisplay();
                 }
             }
         } else {
+            WA_SERIAL_PRINTLN("No animation set for current weather, displaying text.");
             // Default text display if no animation is set
             oledDisplay->setTextSize(1);
             oledDisplay->setTextColor(WHITE);
             oledDisplay->setCursor(0, 0);
             switch (_currentWeather) {
-                case WEATHER_CLEAR:   oledDisplay->println("Clear Sky"); break;
-                case WEATHER_CLOUDY:  oledDisplay->println("Cloudy"); break;
-                case WEATHER_RAIN:    oledDisplay->println("Rainy"); break;
-                case WEATHER_SNOW:    oledDisplay->println("Snowy"); break;
-                case WEATHER_STORM:   oledDisplay->println("Stormy"); break;
-                default:              oledDisplay->println("Unknown");
+                case WEATHER_CLEAR:   oledDisplay->println("Clear Sky"); WA_SERIAL_PRINTLN("Displaying: Clear Sky"); break;
+                case WEATHER_CLOUDY:  oledDisplay->println("Cloudy"); WA_SERIAL_PRINTLN("Displaying: Cloudy"); break;
+                case WEATHER_RAIN:    oledDisplay->println("Rainy"); WA_SERIAL_PRINTLN("Displaying: Rainy"); break;
+                case WEATHER_SNOW:    oledDisplay->println("Snowy"); WA_SERIAL_PRINTLN("Displaying: Snowy"); break;
+                case WEATHER_STORM:   oledDisplay->println("Stormy"); WA_SERIAL_PRINTLN("Displaying: Stormy"); break;
+                default:              oledDisplay->println("Unknown"); WA_SERIAL_PRINTLN("Displaying: Unknown"); 
             }
         }
+        WA_SERIAL_PRINTLN("Updating OLED display.");
         oledDisplay->display();
     } else if (_displayType == TFT_DISPLAY) {
         #if defined(ESP8266) || defined(ESP32)
@@ -490,6 +518,7 @@ void WeatherAnimations::displayAnimation() {
         }
         #endif
     }
+    WA_SERIAL_PRINTLN("Exiting displayAnimation method.");
 }
 
 bool WeatherAnimations::fetchOnlineAnimation(uint8_t weatherCondition) {

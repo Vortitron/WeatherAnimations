@@ -160,10 +160,21 @@ void setup() {
 }
 
 void handleButtons() {
+	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+	Serial.println("Handling button inputs.");
+	#endif
 	// Read current button states
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
 	bool leftButtonState = digitalRead(leftButton);
+	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+	Serial.print("Button states - Encoder: ");
+	Serial.print(encoderPushState);
+	Serial.print(", Back: ");
+	Serial.print(backButtonState);
+	Serial.print(", Left: ");
+	Serial.println(leftButtonState);
+	#endif
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
@@ -240,6 +251,9 @@ void handleButtons() {
 }
 
 void loop() {
+	#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+	Serial.println("Main loop running.");
+	#endif
 	// Check button states
 	handleButtons();
 	
