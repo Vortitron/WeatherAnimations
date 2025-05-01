@@ -187,9 +187,13 @@ void handleButtons() {
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	// Reduced debounce delay to ensure quicker response
+	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
 		// If the push button state has changed and is now LOW (pressed)
 		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
+			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+			Serial.println("Encoder button pressed - attempting to cycle animation.");
+			#endif
 			// Enter manual mode if not already
 			manualMode = true;
 			
@@ -214,9 +218,12 @@ void handleButtons() {
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
 		// If the back button state has changed and is now LOW (pressed)
 		if (backButtonState == LOW && lastBackButtonState == HIGH) {
+			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+			Serial.println("Back button pressed - attempting to return to live data.");
+			#endif
 			// Exit manual mode
 			if (manualMode) {
 				manualMode = false;
@@ -235,9 +242,12 @@ void handleButtons() {
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
 		// If the left button state has changed and is now LOW (pressed)
 		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
+			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+			Serial.println("Left button pressed - attempting to toggle animation mode.");
+			#endif
 			// Toggle animation mode
 			animatedMode = !animatedMode;
 			

@@ -374,8 +374,25 @@ void WeatherAnimations::displayAnimation() {
                 WA_SERIAL_PRINT("Drawing frame ");
                 WA_SERIAL_PRINT(_currentFrame);
                 WA_SERIAL_PRINTLN(" on OLED display.");
-                oledDisplay->drawBitmap(0, 0, _animations[_currentWeather].frames[_currentFrame], 
-                                       SCREEN_WIDTH, SCREEN_HEIGHT, WHITE);
+                // Check if the frame data looks valid before drawing (basic sanity check)
+                if (_animations[_currentWeather].frames[_currentFrame] != nullptr) {
+                    oledDisplay->drawBitmap(0, 0, _animations[_currentWeather].frames[_currentFrame], 
+                                           SCREEN_WIDTH, SCREEN_HEIGHT, WHITE);
+                } else {
+                    WA_SERIAL_PRINTLN("Frame data is null, falling back to text display.");
+                    // Fallback to text display if frame data is invalid
+                    oledDisplay->setTextSize(1);
+                    oledDisplay->setTextColor(WHITE);
+                    oledDisplay->setCursor(0, 0);
+                    switch (_currentWeather) {
+                        case WEATHER_CLEAR:   oledDisplay->println("Clear Sky"); WA_SERIAL_PRINTLN("Displaying: Clear Sky"); break;
+                        case WEATHER_CLOUDY:  oledDisplay->println("Cloudy"); WA_SERIAL_PRINTLN("Displaying: Cloudy"); break;
+                        case WEATHER_RAIN:    oledDisplay->println("Rainy"); WA_SERIAL_PRINTLN("Displaying: Rainy"); break;
+                        case WEATHER_SNOW:    oledDisplay->println("Snowy"); WA_SERIAL_PRINTLN("Displaying: Snowy"); break;
+                        case WEATHER_STORM:   oledDisplay->println("Stormy"); WA_SERIAL_PRINTLN("Displaying: Stormy"); break;
+                        default:              oledDisplay->println("Unknown"); WA_SERIAL_PRINTLN("Displaying: Unknown"); 
+                    }
+                }
                 
                 // In simple transition mode, stop after one cycle
                 if (_mode == SIMPLE_TRANSITION && _currentFrame == 0 && 
