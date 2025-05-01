@@ -9,7 +9,7 @@
 // Arduino core must be included first
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 
 // Define Serial macros to allow disabling debug output
 #ifndef WA_DISABLE_SERIAL
@@ -22,23 +22,13 @@
 	#define WA_SERIAL_PRINTF(fmt, ...)
 #endif
 
-// Include platform-specific libraries
-#if defined(ESP8266)
-	#include <ESP8266WiFi.h>
-	#include <ESP8266HTTPClient.h>
-	#include <time.h>
-#elif defined(ESP32)
-	#include <WiFi.h>
-	#include <HTTPClient.h>
-	#include <time.h>
-#endif
-
-#if defined(ESP8266) || defined(ESP32)
-	#include <TFT_eSPI.h>
-#endif
+// Include platform-specific libraries for ESP32 only
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <time.h>
+#include <TFT_eSPI.h>
 
 // Define display types
-#define OLED_DISPLAY 0
 #define OLED_SH1106 1
 #define TFT_DISPLAY 2
 
@@ -74,7 +64,7 @@ public:
     ~WeatherAnimations();
     
     // Initialize the library and connect to Wi-Fi and display
-    void begin(uint8_t displayType = OLED_DISPLAY, uint8_t i2cAddr = 0x3C, bool manageWiFi = true);
+    void begin(uint8_t displayType = OLED_SH1106, uint8_t i2cAddr = 0x3C, bool manageWiFi = true);
     
     // Set the operation mode
     void setMode(uint8_t mode);
@@ -168,6 +158,8 @@ private:
     bool fetchOnlineAnimation(uint8_t weatherCondition);
     void renderTFTAnimation(uint8_t weatherCondition);
     void displayTransitionFrame(uint8_t weatherCondition, float progress);
+    void displayTextFallback(uint8_t weatherCondition);
+    const char* getWeatherText(uint8_t weatherCondition);
     
     // Set animation based on Home Assistant weather condition
     bool setAnimationFromHACondition(const char* condition, bool isDaytime);
