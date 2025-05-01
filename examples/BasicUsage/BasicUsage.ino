@@ -187,8 +187,8 @@ void handleButtons() {
 		#endif
 	}
 	
-	// Reduced debounce delay to ensure quicker response
-	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
+	// Check if debounce delay has passed
+	if ((millis() - lastDebounceTime) > debounceDelay) {
 		// If the push button state has changed and is now LOW (pressed)
 		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
@@ -218,7 +218,7 @@ void handleButtons() {
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
+	if ((millis() - lastDebounceTime) > debounceDelay) {
 		// If the back button state has changed and is now LOW (pressed)
 		if (backButtonState == LOW && lastBackButtonState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
@@ -242,7 +242,7 @@ void handleButtons() {
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > (debounceDelay / 2)) {
+	if ((millis() - lastDebounceTime) > debounceDelay) {
 		// If the left button state has changed and is now LOW (pressed)
 		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
