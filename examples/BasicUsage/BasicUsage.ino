@@ -60,7 +60,10 @@ int currentWeatherIndex = 0;
 bool manualMode = true; // Start in manual mode by default
 bool lastEncoderPushState = HIGH;
 bool lastBackButtonState = HIGH;
-unsigned long lastDebounceTime = 0;
+bool lastLeftButtonState = HIGH;
+unsigned long lastEncoderDebounceTime = 0;
+unsigned long lastBackDebounceTime = 0;
+unsigned long lastLeftDebounceTime = 0;
 const unsigned long debounceDelay = 50;
 
 // Network and API credentials
@@ -181,14 +184,14 @@ void handleButtons() {
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
-		lastDebounceTime = millis();
+		lastEncoderDebounceTime = millis();
 		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 		Serial.println("Encoder button state changed.");
 		#endif
 	}
 	
-	// Check if debounce delay has passed
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	// Check if debounce delay has passed for encoder
+	if ((millis() - lastEncoderDebounceTime) > debounceDelay) {
 		// If the push button state has changed and is now LOW (pressed)
 		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
@@ -212,13 +215,13 @@ void handleButtons() {
 	
 	// Handle back button (with debounce)
 	if (backButtonState != lastBackButtonState) {
-		lastDebounceTime = millis();
+		lastBackDebounceTime = millis();
 		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 		Serial.println("Back button state changed.");
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	if ((millis() - lastBackDebounceTime) > debounceDelay) {
 		// If the back button state has changed and is now LOW (pressed)
 		if (backButtonState == LOW && lastBackButtonState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
@@ -236,13 +239,13 @@ void handleButtons() {
 	
 	// Handle left button (with debounce)
 	if (leftButtonState != lastLeftButtonState) {
-		lastDebounceTime = millis();
+		lastLeftDebounceTime = millis();
 		#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
 		Serial.println("Left button state changed.");
 		#endif
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
+	if ((millis() - lastLeftDebounceTime) > debounceDelay) {
 		// If the left button state has changed and is now LOW (pressed)
 		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
 			#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
