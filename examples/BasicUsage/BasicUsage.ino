@@ -84,6 +84,12 @@ unsigned long lastFrameTime = 0;
 uint8_t currentFrame = 0;
 const int frameDelay = 200; // ms between frames
 
+// Animation state variables
+bool isTransitioning = false;
+unsigned long transitionStartTime = 0;
+const unsigned long transitionDuration = 1000; // ms
+uint8_t lastWeatherType = WEATHER_CLEAR;
+
 // Network and API credentials
 // These will be overridden by config.h if it exists
 #ifndef CONFIG_EXISTS
@@ -92,6 +98,16 @@ const int frameDelay = 200; // ms between frames
 	const char* haIP = "YourHomeAssistantIP";
 	const char* haToken = "YourHomeAssistantToken";
 	const char* weatherEntity = "weather.forecast_home";
+	
+	// Animation URLs (GitHub links to quality animations)
+	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
 #else
 	// Use the configuration from config.h
 	#ifndef WIFI_SSID
@@ -115,6 +131,55 @@ const int frameDelay = 200; // ms between frames
 	const char* haIP = HA_IP;
 	const char* haToken = HA_TOKEN;
 	const char* weatherEntity = HA_WEATHER_ENTITY;
+	
+	// Animation URLs from config (if defined)
+	#ifdef ANIM_CLEAR_DAY
+	const char* clearSkyDayURL = ANIM_CLEAR_DAY;
+	#else
+	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+	#endif
+	
+	#ifdef ANIM_CLEAR_NIGHT
+	const char* clearSkyNightURL = ANIM_CLEAR_NIGHT;
+	#else
+	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+	#endif
+	
+	#ifdef ANIM_CLOUDY
+	const char* cloudyURL = ANIM_CLOUDY;
+	#else
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+	#endif
+	
+	#ifdef ANIM_RAIN
+	const char* rainURL = ANIM_RAIN;
+	#else
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+	#endif
+	
+	#ifdef ANIM_HEAVY_RAIN
+	const char* heavyRainURL = ANIM_HEAVY_RAIN;
+	#else
+	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
+	#endif
+	
+	#ifdef ANIM_SNOW
+	const char* snowURL = ANIM_SNOW;
+	#else
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+	#endif
+	
+	#ifdef ANIM_STORM
+	const char* stormURL = ANIM_STORM;
+	#else
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+	#endif
+	
+	#ifdef ANIM_STORM_RAIN
+	const char* stormRainURL = ANIM_STORM_RAIN;
+	#else
+	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
+	#endif
 #endif
 
 // Create WeatherAnimations instance
@@ -422,16 +487,39 @@ void setup() {
 	// Initialize the WeatherAnimations library
 	weatherAnim.begin(OLED_SH1106, OLED_ADDR, false);
 	
-	// Set animation mode to embedded (not online)
-	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+	// Set animation mode to online to use online resources
+	weatherAnim.setAnimationMode(ANIMATION_ONLINE);
 	
+	// Set the custom weather entity ID
+	weatherAnim.setWeatherEntity(weatherEntity);
+	
+	// Configure online animation sources
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, true, clearSkyDayURL);   // Day version
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, false, clearSkyNightURL); // Night version
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
+	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
+	
+	// Use CONTINUOUS_WEATHER mode for smoother animations
+	weatherAnim.setMode(CONTINUOUS_WEATHER);
+
 	// Connect to WiFi if not in manual mode
 	if (!manualMode) {
+		Serial.println("Connecting to WiFi for online animations...");
 		connectToWiFi();
 	}
 	
 	// Display initial weather
-	drawStaticWeather(WEATHER_TYPES[currentWeatherIndex]);
+	if (animatedMode) {
+		// Start with the current weather on start
+		lastWeatherType = WEATHER_TYPES[currentWeatherIndex];
+		isTransitioning = true;
+		transitionStartTime = millis();
+		weatherAnim.runTransition(lastWeatherType, TRANSITION_FADE, transitionDuration);
+	} else {
+		drawStaticWeather(WEATHER_TYPES[currentWeatherIndex]);
+	}
 	
 	Serial.println("Setup complete!");
 	printCurrentState();
@@ -457,17 +545,27 @@ void handleButtons() {
 			
 			// Cycle to next weather type
 			currentWeatherIndex = (currentWeatherIndex + 1) % WEATHER_TYPE_COUNT;
+			uint8_t newWeatherType = WEATHER_TYPES[currentWeatherIndex];
 			
 			Serial.print("Changed to weather type: ");
-			Serial.println(getWeatherTypeName(WEATHER_TYPES[currentWeatherIndex]));
+			Serial.println(getWeatherTypeName(newWeatherType));
 			
 			// Use the WeatherAnimations library for transitions 
 			if (animatedMode) {
-				// Run transition to the new weather type
-				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_RIGHT_TO_LEFT, 500);
+				// Start transition to new weather type
+				isTransitioning = true;
+				transitionStartTime = millis();
+				lastWeatherType = newWeatherType;
+				
+				// Use a visible transition
+				uint8_t transitionType = random(5); // Random transition for variety
+				weatherAnim.runTransition(newWeatherType, transitionType, transitionDuration);
+				
+				Serial.print("Starting transition type: ");
+				Serial.println(transitionType);
 			} else {
 				// For static mode, still use our own drawing
-				drawStaticWeather(WEATHER_TYPES[currentWeatherIndex]);
+				drawStaticWeather(newWeatherType);
 			}
 			
 			// Show current state
@@ -571,13 +669,26 @@ void loop() {
 	// Handle button presses
 	handleButtons();
 	
+	// Handle animation states
+	unsigned long currentMillis = millis();
+	
+	// If transitioning, check if transition is complete
+	if (isTransitioning) {
+		if (currentMillis - transitionStartTime >= transitionDuration) {
+			isTransitioning = false;
+			Serial.println("Transition complete");
+		}
+	}
+	
 	// Handle animation if in animated mode and manual mode
 	if (animatedMode && manualMode) {
-		unsigned long currentMillis = millis();
-		if (currentMillis - lastFrameTime >= frameDelay) {
-			lastFrameTime = currentMillis;
-			currentFrame = (currentFrame + 1) % 4; // 4 frames of animation
-			drawAnimatedWeather(WEATHER_TYPES[currentWeatherIndex], currentFrame);
+		if (!isTransitioning) {
+			// Only update frames if not in a transition
+			if (currentMillis - lastFrameTime >= frameDelay) {
+				lastFrameTime = currentMillis;
+				currentFrame = (currentFrame + 1) % 4; // 4 frames of animation
+				drawAnimatedWeather(lastWeatherType, currentFrame);
+			}
 		}
 	} 
 	// If in live mode (not manual), use the WeatherAnimations library
@@ -587,7 +698,6 @@ void loop() {
 		
 		// Periodically refresh weather data
 		static unsigned long lastFetchTime = 0;
-		unsigned long currentMillis = millis();
 		if (currentMillis - lastFetchTime >= 300000) { // 5 minutes
 			lastFetchTime = currentMillis;
 			
@@ -597,11 +707,17 @@ void loop() {
 			// Update library with current weather if needed
 			if (currentWeather != weatherAnim.getCurrentWeather()) {
 				// Run transition to the new weather
-				weatherAnim.runTransition(currentWeather, TRANSITION_FADE, 1000);
+				lastWeatherType = currentWeather;
+				isTransitioning = true;
+				transitionStartTime = currentMillis;
+				weatherAnim.runTransition(currentWeather, TRANSITION_FADE, transitionDuration);
+				
+				Serial.print("Weather changed to: ");
+				Serial.println(getWeatherTypeName(currentWeather));
 			}
 		}
 	}
 	
 	// Add a small delay to prevent excessive updates
-	delay(50);
+	delay(10);
 } 
