@@ -9,6 +9,8 @@ A library for displaying animated weather icons on a SH1106 OLED display connect
 - Multiple transition types for smooth weather changes
 - Support for both static and animated icons
 - Simple button interface for demonstration
+- Idle timeout functionality to display weather after inactivity
+- Wake from weather display with any button press
 
 ## Hardware Requirements
 
@@ -52,9 +54,9 @@ This library requires the following Arduino libraries:
 
 ## Usage
 
-### Basic Example
+### Examples
 
-There are two main examples provided:
+There are several examples provided:
 
 #### 1. BasicDisplay Example
 
@@ -81,9 +83,46 @@ void setup() {
 }
 ```
 
-#### 2. WeatherAnimations Library Usage
+#### 2. SimpleWeatherDisplay Example
 
-If the simpler example works and you want to use the full library:
+A minimalist example that shows how to use the library to display weather animations after an idle timeout and dismiss with a button press:
+
+```arduino
+// Create WeatherAnimations instance with your credentials
+WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
+
+// In setup()
+weatherAnim.begin(OLED_SH1106, OLED_ADDR, true);
+weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+weatherAnim.setWeatherEntity("weather.forecast_home");
+
+// In loop()
+// Check for idle timeout
+if (!isDisplayingIdle && (millis() - lastUserActivityTime >= idleTimeout)) {
+  // Show weather animation
+  weatherAnim.setMode(CONTINUOUS_WEATHER);
+  weatherAnim.updateWeatherData();
+  isDisplayingIdle = true;
+}
+
+// Check for button press to wake
+if (buttonPressed && isDisplayingIdle) {
+  // Hide weather animation
+  display.clearDisplay();
+  // Your wake screen code here
+  lastUserActivityTime = millis();
+  isDisplayingIdle = false;
+}
+
+// Update animation if displaying weather
+if (isDisplayingIdle) {
+  weatherAnim.update();
+}
+```
+
+#### 3. Full WeatherAnimations Library Usage
+
+For more complete functionality:
 
 ```arduino
 // Initialize the library
@@ -108,6 +147,17 @@ The demo examples use three buttons:
 - Button 1 (Encoder push): Cycle through different weather types
 - Button 2 (Back): Return to live weather data from Home Assistant
 - Button 3 (Left): Toggle between static and animated icons
+
+### Idle Timeout Feature
+
+The library can be used to show weather animations after a period of inactivity:
+
+1. **Track user activity:** Set a timestamp whenever user input is detected
+2. **Check idle timeout:** Compare the current time with the last activity timestamp
+3. **Display weather:** When the idle timeout is reached, show weather animations
+4. **Wake on button press:** Return to normal operation when any button is pressed
+
+This is ideal for ambient displays that show weather conditions when not otherwise in use.
 
 ## SSD1306 Library for SH1106 Displays
 
@@ -151,7 +201,7 @@ The demo examples use three buttons:
    display.setTextColor(SSD1306_WHITE);
    ```
 
-The `BasicDisplay` example is already set up to use the SSD1306 library with the SH1106 display, and we've included a version of `BasicUsage` that also uses this approach.
+The examples are set up to use the SSD1306 library with the SH1106 display, which provides better reliability.
 
 ## Troubleshooting
 
@@ -187,9 +237,9 @@ If your ESP32 crashes or freezes during animation display:
    - Try different I2C speed settings
 
 4. **Alternative Approach**: If animations still don't work:
-   - Use the `BasicDisplay` example which doesn't use the animation features
+   - Use the `BasicDisplay` example which doesn't use the animation features 
+   - Try the SimpleWeatherDisplay example that uses simpler direct drawing
    - Create your own simple weather display using just the SSD1306 library
-   - Consider modifying the library to use only one display driver (either U8g2 or Adafruit)
 
 ## Contributing
 

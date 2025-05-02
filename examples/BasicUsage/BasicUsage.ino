@@ -18,16 +18,16 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-// IMPORTANT: Include order matters to avoid naming conflicts
-// The animated icons header uses "animated_" prefixed variables to avoid
-// conflicts with similarly named variables in WeatherAnimationsAnimations.cpp
+// Using simpler directly drawn animations instead of the animated icons header
+// This avoids the naming conflicts and provides better reliability
 #include "../../src/WeatherAnimations.h"
 #include "../../src/WeatherAnimations.cpp"
 #include "../../src/WeatherAnimationsAnimations.h"
 #include "../../src/WeatherAnimationsAnimations.cpp"
 #include "../../src/WeatherAnimationsIcons.h"
 #include "../../src/WeatherAnimationsIcons.cpp"
-#include "../../src/WeatherAnimationsAnimatedIcons.h"
+// We're not using the animated icons header for now
+// #include "../../src/WeatherAnimationsAnimatedIcons.h"
 
 // Include the library source files as a zip file - uncomment if using installed library
 // #include <WeatherAnimations.h>
@@ -92,6 +92,12 @@ bool isTransitioning = false;
 unsigned long transitionStartTime = 0;
 const unsigned long transitionDuration = 1000; // ms
 uint8_t lastWeatherType = WEATHER_CLEAR;
+
+// Idle timeout variables
+unsigned long lastUserActivityTime = 0;
+const unsigned long idleTimeoutDuration = 60000; // 60 seconds idle before showing weather
+bool isDisplayingIdle = false;
+bool isDisplayOn = true;
 
 // Network and API credentials
 // These will be overridden by config.h if it exists
@@ -424,6 +430,69 @@ void updateWeatherType(uint8_t newWeatherType, bool animate) {
 	}
 }
 
+// Turn on weather display when idle
+void showIdleWeather() {
+	if (!isDisplayingIdle) {
+		Serial.println("Switching to idle weather display");
+		isDisplayingIdle = true;
+		
+		// Fetch current weather if in live mode
+		uint8_t weatherToShow;
+		if (!manualMode) {
+			weatherToShow = fetchWeatherData();
+		} else {
+			weatherToShow = WEATHER_TYPES[currentWeatherIndex];
+		}
+		
+		// Always use animated mode for idle display
+		animatedMode = true;
+		updateWeatherType(weatherToShow, true);
+	}
+}
+
+// Turn off weather display on user activity
+void hideIdleWeather() {
+	if (isDisplayingIdle) {
+		Serial.println("Exiting idle weather display");
+		isDisplayingIdle = false;
+		
+		// Clear the display
+		display.clearDisplay();
+		display.setTextSize(1);
+		display.setCursor(0, 0);
+		display.println("Weather Display");
+		display.println("Press any button");
+		display.display();
+	}
+}
+
+// Check for any button activity
+bool checkAnyButtonPressed() {
+	bool encoderPushState = digitalRead(encoderPUSH) == LOW;
+	bool backButtonState = digitalRead(backButton) == LOW;
+	bool leftButtonState = digitalRead(leftButton) == LOW;
+	
+	return encoderPushState || backButtonState || leftButtonState;
+}
+
+// Function to get frame count for a weather type
+uint8_t getAnimationFrameCount(uint8_t weatherType) {
+	switch (weatherType) {
+		case WEATHER_CLEAR:
+			return 5; // Sun rays animation has 5 frames
+		case WEATHER_CLOUDY:
+			return 2; // Cloud movement has 2 frames
+		case WEATHER_RAIN:
+			return 3; // Rain drops have 3 frames
+		case WEATHER_SNOW:
+			return 3; // Snowflakes have 3 frames
+		case WEATHER_STORM:
+			return 3; // Lightning flash has 3 frames
+		default:
+			return 2; // Default to 2 frames
+	}
+}
+
 void setup() {
 	// Initialize serial for debugging
 	Serial.begin(115200);
@@ -481,11 +550,6 @@ void setup() {
 	Serial.println("Setting up for embedded animations...");
 	weatherAnim.setMode(SIMPLE_TRANSITION);
 
-	// Tell the library to use our embedded animations
-	Serial.println("Initializing embedded animations...");
-	// The following line only needed if the library has a method to explicitly use the animations
-	// weatherAnim.useEmbeddedAnimations(true);
-
 	// Connect to WiFi for future weather data
 	Serial.println("Connecting to WiFi for weather data...");
 	if (connectToWiFi()) {
@@ -498,6 +562,10 @@ void setup() {
 	lastWeatherType = WEATHER_TYPES[currentWeatherIndex];
 	drawStaticWeather(lastWeatherType);
 
+	// Initialize user activity tracking
+	lastUserActivityTime = millis();
+	isDisplayingIdle = false;
+
 	Serial.println("Setup complete!");
 	printCurrentState();
 }
@@ -507,6 +575,16 @@ void handleButtons() {
 	bool encoderPushState = digitalRead(encoderPUSH);
 	bool backButtonState = digitalRead(backButton);
 	bool leftButtonState = digitalRead(leftButton);
+	
+	// Check if any button was pressed to update activity time
+	if (encoderPushState == LOW || backButtonState == LOW || leftButtonState == LOW) {
+		lastUserActivityTime = millis();
+		// If we were in idle display mode, exit it
+		if (isDisplayingIdle) {
+			hideIdleWeather();
+			return; // Skip other button handling when exiting idle mode
+		}
+	}
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
@@ -624,68 +702,66 @@ void loop() {
 	// Handle button presses
 	handleButtons();
 	
-	// Handle animation states
+	// Check for idle timeout
 	unsigned long currentMillis = millis();
+	if (!isDisplayingIdle && (currentMillis - lastUserActivityTime >= idleTimeoutDuration)) {
+		showIdleWeather();
+	}
 	
-	// If transitioning, check if transition is complete
-	if (isTransitioning) {
+	// Handle animation states
+	if (isDisplayingIdle || (!isTransitioning && isDisplayOn)) {
+		// Handle animation if in animated mode and not in a transition
+		if (animatedMode && (isDisplayingIdle || manualMode)) {
+			// Only update frames at the specified delay
+			if (currentMillis - lastFrameTime >= frameDelay) {
+				lastFrameTime = currentMillis;
+				
+				// Cycle through frames
+				currentFrame = (currentFrame + 1) % getAnimationFrameCount(lastWeatherType);
+				
+				// Use our manual drawing to show the animation frame
+				drawAnimatedWeather(lastWeatherType, currentFrame);
+				
+				// Log the frame change (every 5 frames to avoid flooding)
+				if (currentFrame % 5 == 0) {
+					Serial.print("Showing frame ");
+					Serial.print(currentFrame + 1);
+					Serial.print("/");
+					Serial.print(getAnimationFrameCount(lastWeatherType));
+					Serial.print(" for weather: ");
+					Serial.println(getWeatherTypeName(lastWeatherType));
+				}
+			}
+		}
+	}
+	// Handle transition if one is active
+	else if (isTransitioning) {
 		if (currentMillis - transitionStartTime >= transitionDuration) {
 			isTransitioning = false;
 			Serial.println("Transition complete");
 		}
 	}
 	
-	// Handle animation if in animated mode and manual mode
-	if (animatedMode && manualMode && !isTransitioning) {
-		// Only update frames if not in a transition
-		if (currentMillis - lastFrameTime >= frameDelay) {
-			lastFrameTime = currentMillis;
-			
-			// Cycle through frames (limit to actual frame count for each animation)
-			currentFrame = (currentFrame + 1) % getAnimationFrameCount(lastWeatherType);
-			
-			// Use our manual drawing to show the animation frame
-			drawAnimatedWeather(lastWeatherType, currentFrame);
-			
-			// Log the frame change (every 5 frames to avoid flooding)
-			if (currentFrame % 5 == 0) {
-				Serial.print("Showing frame ");
-				Serial.print(currentFrame + 1);
-				Serial.print("/");
-				Serial.print(getAnimationFrameCount(lastWeatherType));
-				Serial.print(" for weather: ");
-				Serial.println(getWeatherTypeName(lastWeatherType));
-			}
-		}
-		
-		// Allow the library to process any updates
-		weatherAnim.update();
-	} 
-	// If in live mode (not manual), use the WeatherAnimations library
-	else if (!manualMode) {
-		// Let the WeatherAnimations library handle updates
-		weatherAnim.update();
-		
-		// Periodically refresh weather data
+	// If in live mode (not manual and not idle), periodically update weather data
+	if (!manualMode && !isDisplayingIdle && isDisplayOn) {
 		static unsigned long lastFetchTime = 0;
 		if (currentMillis - lastFetchTime >= 300000) { // 5 minutes
 			lastFetchTime = currentMillis;
 			
-			// Fetch weather data ourselves for display
+			// Fetch current weather
 			uint8_t currentWeather = fetchWeatherData();
 			
-			// Update library with current weather if needed
-			if (currentWeather != weatherAnim.getCurrentWeather()) {
-				// Run transition to the new weather
+			// Only update if weather has changed
+			if (currentWeather != lastWeatherType) {
 				lastWeatherType = currentWeather;
+				
+				// Use library transition effect
 				isTransitioning = true;
 				transitionStartTime = currentMillis;
 				
 				if (animatedMode) {
-					// Use library transition effect
 					weatherAnim.runTransition(currentWeather, TRANSITION_FADE, transitionDuration);
 				} else {
-					// Just update static display
 					drawStaticWeather(currentWeather);
 				}
 				
