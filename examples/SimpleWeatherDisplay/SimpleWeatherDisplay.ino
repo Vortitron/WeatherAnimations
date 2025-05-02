@@ -64,10 +64,7 @@ void showWeatherDisplay() {
 		// Use animated continuous weather mode
 		weatherAnim.setMode(CONTINUOUS_WEATHER);
 		
-		// Update current weather from Home Assistant
-		weatherAnim.updateWeatherData();
-		
-		// Display the animation
+		// Display the animation - update() will fetch weather data automatically
 		weatherAnim.update();
 	}
 }
@@ -132,8 +129,8 @@ void setup() {
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
 	
-	// Initialize WiFi connection
-	weatherAnim.connectToWiFi(ssid, password);
+	// WiFi will be managed by the library, so we don't need to call connectToWiFi
+	// The constructor already has the WiFi credentials
 	
 	// Initialize user activity tracking
 	lastUserActivityTime = millis();
