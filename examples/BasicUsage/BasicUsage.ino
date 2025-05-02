@@ -243,8 +243,44 @@ void drawStaticWeather(uint8_t weatherType) {
 	display.setCursor(0, 12);
 	display.println(getWeatherTypeName(weatherType));
 	
-	// Draw weather icon using the library
-	weatherAnim.drawSSD1306Icon(&display, weatherType, 96, 32);
+	// Draw weather icon - using basic drawing instead of library
+	switch (weatherType) {
+		case WEATHER_CLEAR:
+			// Draw sun
+			display.fillCircle(96, 32, 16, SSD1306_WHITE);
+			break;
+		case WEATHER_CLOUDY:
+			// Draw cloud
+			display.fillRoundRect(86, 34, 36, 18, 8, SSD1306_WHITE);
+			display.fillRoundRect(78, 24, 28, 20, 8, SSD1306_WHITE);
+			break;
+		case WEATHER_RAIN:
+			// Draw cloud with rain
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			for (int i = 0; i < 6; i++) {
+				display.drawLine(86 + i*7, 42, 89 + i*7, 52, SSD1306_WHITE);
+			}
+			break;
+		case WEATHER_SNOW:
+			// Draw cloud with snow
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			for (int i = 0; i < 6; i++) {
+				display.drawCircle(89 + i*7, 48, 2, SSD1306_WHITE);
+			}
+			break;
+		case WEATHER_STORM:
+			// Draw cloud with lightning
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			display.fillTriangle(100, 42, 90, 52, 95, 52, SSD1306_WHITE);
+			display.fillTriangle(95, 52, 105, 52, 98, 62, SSD1306_WHITE);
+			break;
+		default:
+			// Unknown weather, draw question mark
+			display.setTextSize(3);
+			display.setCursor(90, 30);
+			display.print("?");
+			break;
+	}
 	
 	// Draw mode indicators at bottom
 	display.setTextSize(1);
@@ -269,8 +305,65 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 	display.setCursor(0, 12);
 	display.println(getWeatherTypeName(weatherType));
 	
-	// Draw animated weather icon using the library
-	weatherAnim.drawSSD1306AnimatedIcon(&display, weatherType, 96, 32, frame);
+	// Draw animated weather icon based on frame
+	switch (weatherType) {
+		case WEATHER_CLEAR:
+			// Animated sun (rays expand/contract)
+			display.fillCircle(96, 32, 12, SSD1306_WHITE);
+			if (frame % 2 == 0) {
+				// Draw longer rays
+				for (int i = 0; i < 8; i++) {
+					float angle = i * PI / 4.0;
+					int x1 = 96 + cos(angle) * 14;
+					int y1 = 32 + sin(angle) * 14;
+					int x2 = 96 + cos(angle) * 22;
+					int y2 = 32 + sin(angle) * 22;
+					display.drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+				}
+			} else {
+				// Draw shorter rays
+				for (int i = 0; i < 8; i++) {
+					float angle = i * PI / 4.0;
+					int x1 = 96 + cos(angle) * 14;
+					int y1 = 32 + sin(angle) * 14;
+					int x2 = 96 + cos(angle) * 18;
+					int y2 = 32 + sin(angle) * 18;
+					display.drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+				}
+			}
+			break;
+		case WEATHER_CLOUDY:
+			// Animated cloud (moves slightly)
+			int offset = (frame % 2 == 0) ? 0 : 2;
+			display.fillRoundRect(86 + offset, 34, 36, 18, 8, SSD1306_WHITE);
+			display.fillRoundRect(78 + offset, 24, 28, 20, 8, SSD1306_WHITE);
+			break;
+		case WEATHER_RAIN:
+			// Animated rain (drops move)
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			for (int i = 0; i < 6; i++) {
+				int height = ((i + frame) % 3) * 4; // Vary drop heights
+				display.drawLine(86 + i*7, 42 + height, 89 + i*7, 52 + height, SSD1306_WHITE);
+			}
+			break;
+		case WEATHER_SNOW:
+			// Animated snow (flakes move)
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			for (int i = 0; i < 6; i++) {
+				int offset_y = ((i + frame) % 3) * 3;
+				int offset_x = ((i + frame) % 2) * 2 - 1;
+				display.drawCircle(89 + i*7 + offset_x, 48 + offset_y, 2, SSD1306_WHITE);
+			}
+			break;
+		case WEATHER_STORM:
+			// Animated lightning (flash)
+			display.fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+			if (frame % 3 != 0) { // Show lightning most frames
+				display.fillTriangle(100, 42, 90, 52, 95, 52, SSD1306_WHITE);
+				display.fillTriangle(95, 52, 105, 52, 98, 62, SSD1306_WHITE);
+			}
+			break;
+	}
 	
 	// Draw mode indicators at bottom
 	display.setTextSize(1);
@@ -324,7 +417,10 @@ void setup() {
 	Serial.println("OLED display initialized successfully");
 	
 	// Initialize the WeatherAnimations library
-	weatherAnim.begin(SSD1306_DISPLAY, 0, false);
+	weatherAnim.begin(OLED_SH1106, OLED_ADDR, false);
+	
+	// Set animation mode to embedded (not online)
+	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
 	
 	// Connect to WiFi if not in manual mode
 	if (!manualMode) {
@@ -362,11 +458,12 @@ void handleButtons() {
 			Serial.print("Changed to weather type: ");
 			Serial.println(getWeatherTypeName(WEATHER_TYPES[currentWeatherIndex]));
 			
-			// Update display
+			// Use the WeatherAnimations library for transitions 
 			if (animatedMode) {
-				currentFrame = 0;
-				drawAnimatedWeather(WEATHER_TYPES[currentWeatherIndex], currentFrame);
+				// Run transition to the new weather type
+				weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_RIGHT_TO_LEFT, 500);
 			} else {
+				// For static mode, still use our own drawing
 				drawStaticWeather(WEATHER_TYPES[currentWeatherIndex]);
 			}
 			
@@ -471,36 +568,34 @@ void loop() {
 	// Handle button presses
 	handleButtons();
 	
-	// Handle animation if in animated mode
-	if (animatedMode) {
+	// Handle animation if in animated mode and manual mode
+	if (animatedMode && manualMode) {
 		unsigned long currentMillis = millis();
 		if (currentMillis - lastFrameTime >= frameDelay) {
 			lastFrameTime = currentMillis;
 			currentFrame = (currentFrame + 1) % 4; // 4 frames of animation
-			
-			if (manualMode) {
-				drawAnimatedWeather(WEATHER_TYPES[currentWeatherIndex], currentFrame);
-			} else {
-				// Periodically refresh weather data
-				static unsigned long lastFetchTime = 0;
-				if (currentMillis - lastFetchTime >= 300000) { // 5 minutes
-					lastFetchTime = currentMillis;
-					uint8_t currentWeather = fetchWeatherData();
-					drawAnimatedWeather(currentWeather, currentFrame);
-				} else {
-					// Just update animation frame
-					drawAnimatedWeather(fetchWeatherData(), currentFrame);
-				}
-			}
+			drawAnimatedWeather(WEATHER_TYPES[currentWeatherIndex], currentFrame);
 		}
-	} else if (!manualMode) {
-		// Periodically refresh weather data in static mode
+	} 
+	// If in live mode (not manual), use the WeatherAnimations library
+	else if (!manualMode) {
+		// Let the WeatherAnimations library handle updates
+		weatherAnim.update();
+		
+		// Periodically refresh weather data
 		static unsigned long lastFetchTime = 0;
 		unsigned long currentMillis = millis();
 		if (currentMillis - lastFetchTime >= 300000) { // 5 minutes
 			lastFetchTime = currentMillis;
+			
+			// Fetch weather data ourselves for display
 			uint8_t currentWeather = fetchWeatherData();
-			drawStaticWeather(currentWeather);
+			
+			// Update library with current weather if needed
+			if (currentWeather != weatherAnim.getCurrentWeather()) {
+				// Run transition to the new weather
+				weatherAnim.runTransition(currentWeather, TRANSITION_FADE, 1000);
+			}
 		}
 	}
 	

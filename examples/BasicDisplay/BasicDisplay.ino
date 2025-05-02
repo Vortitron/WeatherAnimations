@@ -96,7 +96,16 @@ void setup() {
   Serial.println("Setup complete. Press the encoder button to cycle through screens.");
   
   // Initialize the WeatherAnimations library (no WiFi)
-  weatherAnim.begin(SSD1306_DISPLAY, 0, false);
+  weatherAnim.begin(OLED_SH1106, OLED_ADDR, false);
+  
+  // Set animation mode to embedded (not online)
+  weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+  
+  // Set continuous weather mode
+  weatherAnim.setMode(CONTINUOUS_WEATHER);
+  
+  // Display initial weather
+  displayWeather(displayState);
 }
 
 void displayWeather(int weatherIndex) {
@@ -114,8 +123,34 @@ void displayWeather(int weatherIndex) {
   display.setTextSize(2);
   display.println(WEATHER_TYPES[weatherIndex]);
   
-  // Draw weather icon using the WeatherAnimations library
-  weatherAnim.drawSSD1306Icon(&display, weatherIndex, 96, 32);
+  // Draw weather icon using direct drawing
+  switch (weatherIndex) {
+    case 0: // CLEAR - draw a sun
+      display.fillCircle(96, 32, 12, SSD1306_WHITE);
+      break;
+    case 1: // CLOUDY - draw a cloud
+      display.fillRoundRect(84, 30, 30, 15, 5, SSD1306_WHITE);
+      display.fillRoundRect(80, 20, 20, 15, 5, SSD1306_WHITE);
+      break;
+    case 2: // RAIN - draw rain drops
+      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
+      for (int i = 0; i < 4; i++) {
+        display.drawLine(86 + i*8, 38, 90 + i*8, 45, SSD1306_WHITE);
+      }
+      break;
+    case 3: // SNOW - draw snowflakes
+      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
+      for (int i = 0; i < 4; i++) {
+        display.drawCircle(86 + i*8, 42, 2, SSD1306_WHITE);
+      }
+      break;
+    case 4: // STORM - draw lightning
+      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
+      display.drawLine(100, 38, 94, 48, SSD1306_WHITE);
+      display.drawLine(94, 48, 100, 48, SSD1306_WHITE);
+      display.drawLine(100, 48, 94, 58, SSD1306_WHITE);
+      break;
+  }
   
   // Display state number
   display.setTextSize(1);
@@ -148,7 +183,7 @@ void handleButtons() {
       // Cycle to next state
       displayState = (displayState + 1) % NUM_STATES;
       
-      // Update display
+      // Update display with transition effect
       displayWeather(displayState);
       
       // Reset debounce timer after handling the press
