@@ -11,8 +11,6 @@
  */
 
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 
@@ -29,13 +27,9 @@
 // #include <WeatherAnimations.h>
 
 // Display settings
+#define OLED_ADDR 0x3C
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-#define OLED_ADDR 0x3C
-
-// Create display instance
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Button pin for waking from weather display
 #define WAKE_BUTTON 27
@@ -75,15 +69,9 @@ void hideWeatherDisplay() {
 		Serial.println("Exiting weather animation");
 		isDisplayingIdle = false;
 		
-		// Clear the display
-		display.clearDisplay();
-		display.setTextSize(1);
-		display.setTextColor(SSD1306_WHITE);
-		display.setCursor(0, 0);
-		display.println("Weather Display");
-		display.println("Idle timeout: 60 sec");
-		display.println("Press button to wake");
-		display.display();
+		// Use the library to display a welcome message using a quick fade transition
+		weatherAnim.setAnimationMode(ANIMATION_STATIC);
+		weatherAnim.runTransition(WEATHER_CLEAR, TRANSITION_FADE, 500);
 	}
 }
 
@@ -99,29 +87,8 @@ void setup() {
 	// Initialize button pin
 	pinMode(WAKE_BUTTON, INPUT_PULLUP);
 	
-	// Initialize display
-	if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-		Serial.println("SSD1306 allocation failed");
-		while (1); // Don't proceed if display init failed
-	}
-	
-	// Show initial message
-	display.clearDisplay();
-	display.setTextSize(1);
-	display.setTextColor(SSD1306_WHITE);
-	display.setCursor(0, 0);
-	display.println("Weather Display");
-	display.println("---------------");
-	display.println("Will show weather");
-	display.println("animation after");
-	display.println("60 seconds of");
-	display.println("inactivity.");
-	display.println("Press button to wake");
-	display.display();
-	
-	// Initialize the WeatherAnimations library
-	// Parameters: display type, I2C address, manage WiFi connection
-	weatherAnim.begin(OLED_SH1106, OLED_ADDR, true);
+	// Initialize the WeatherAnimations library with SSD1306 display
+	weatherAnim.begin(OLED_SSD1306, OLED_ADDR, true);
 	
 	// Set animation mode to embedded (not online)
 	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
@@ -129,8 +96,12 @@ void setup() {
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
 	
-	// WiFi will be managed by the library, so we don't need to call connectToWiFi
-	// The constructor already has the WiFi credentials
+	// Show welcome message
+	weatherAnim.setAnimationMode(ANIMATION_STATIC);
+	weatherAnim.runTransition(WEATHER_CLEAR, TRANSITION_FADE, 500);
+	
+	// Set back to embedded animations for weather display
+	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
 	
 	// Initialize user activity tracking
 	lastUserActivityTime = millis();

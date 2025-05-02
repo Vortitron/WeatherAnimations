@@ -9,7 +9,9 @@
 // Arduino core must be included first
 #include <Arduino.h>
 #include <Wire.h>
-#include <U8g2lib.h>
+// Include Adafruit libraries for SSD1306
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // Define Serial macros to allow disabling debug output
 #ifndef WA_DISABLE_SERIAL
@@ -29,8 +31,9 @@
 #include <TFT_eSPI.h>
 
 // Define display types
-#define OLED_SH1106 1
-#define TFT_DISPLAY 2
+#define OLED_SSD1306 1
+#define OLED_SH1106 2 // Keeping for backward compatibility
+#define TFT_DISPLAY 3
 
 // Define operation modes
 #define SIMPLE_TRANSITION 1
@@ -55,6 +58,7 @@
 #define WEATHER_SNOW 3
 #define WEATHER_STORM 4
 
+namespace WeatherAnimationsLib {
     class WeatherAnimations {
 public:
     // Constructor with Wi-Fi and Home Assistant credentials
@@ -64,7 +68,7 @@ public:
     ~WeatherAnimations();
     
     // Initialize the library and connect to Wi-Fi and display
-    void begin(uint8_t displayType = OLED_SH1106, uint8_t i2cAddr = 0x3C, bool manageWiFi = true);
+    void begin(uint8_t displayType = OLED_SSD1306, uint8_t i2cAddr = 0x3C, bool manageWiFi = true);
     
     // Set the operation mode
     void setMode(uint8_t mode);
@@ -170,5 +174,8 @@ private:
     // Parse GIF data to extract frames
     bool parseGifFrames(uint8_t weatherCondition);
 };
+}
+
+using WeatherAnimations = WeatherAnimationsLib::WeatherAnimations;
 
 #endif // WEATHER_ANIMATIONS_H 
