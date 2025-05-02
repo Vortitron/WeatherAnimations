@@ -225,8 +225,12 @@ void printCurrentState() {
 
 // Connect to WiFi
 bool connectToWiFi() {
+	WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
 	WiFi.begin(ssid, password);
-	Serial.print("Connecting to WiFi");
+	Serial.print("Connecting to WiFi: ");
+	Serial.print(ssid);
+
 	int attempts = 0;
 	while (WiFi.status() != WL_CONNECTED && attempts < 20) {
 		delay(500);
