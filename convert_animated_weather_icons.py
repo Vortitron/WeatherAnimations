@@ -335,7 +335,7 @@ def convert_frames_to_monochrome(frame_paths, output_dir, base_name):
         return []
 
 def frames_to_c_arrays(frame_paths, condition_name):
-    """Convert monochrome PNG frames to C arrays for OLED display"""
+    """Convert monochrome PNG frames to C arrays for OLED display in the format needed by WeatherAnimations"""
     try:
         # C array output
         var_name = re.sub(r'[^a-zA-Z0-9]', '_', condition_name).lower()
@@ -346,22 +346,29 @@ def frames_to_c_arrays(frame_paths, condition_name):
             img = Image.open(frame_path).convert('1')  # Convert to 1-bit monochrome
             width, height = img.size
             
-            # Create byte array for OLED display (1 byte = 8 pixels vertically)
-            byte_width = (width + 7) // 8
+            # OLED displays need 1024 bytes for 128x64 display (128*64/8)
+            # Each byte represents 8 vertical pixels
+            byte_width = math.ceil(width / 8)
             byte_height = height
-            bitmap_data = []
+            bitmap_size = 1024  # Fixed size for the WeatherAnimations library
+            bitmap_data = [0] * bitmap_size  # Initialize with zeros
             
-            for y in range(0, height, 8):
-                for x in range(width):
-                    byte_val = 0
-                    for bit in range(min(8, height - y)):
-                        if x < width and y + bit < height:
-                            if img.getpixel((x, y + bit)) == 0:  # Black pixel (OLED on)
-                                byte_val |= 1 << bit
-                    bitmap_data.append(byte_val)
+            for y in range(0, height):
+                for x in range(0, width):
+                    # For OLED, each byte is 8 vertical pixels
+                    # Calculate which byte in the array we're updating
+                    byte_index = (y // 8) * width + x
+                    
+                    # Only process if within bounds
+                    if byte_index < bitmap_size:
+                        # If pixel is black (0 in monochrome), set the bit
+                        # OLED displays use 1 for lit pixels, 0 for off
+                        if img.getpixel((x, y)) == 0:  # Black pixel
+                            bit_position = y % 8
+                            bitmap_data[byte_index] |= (1 << bit_position)
             
-            # Format as C array
-            c_array = f"const uint8_t {var_name}Frame{i}[{len(bitmap_data)}] PROGMEM = {{\n"
+            # Format as C array with PROGMEM directive for Arduino
+            c_array = f"const uint8_t {var_name}Frame{i+1}[1024] PROGMEM = {{\n"
             c_array += "    "
             for j, val in enumerate(bitmap_data):
                 c_array += f"0x{val:02X}, "
@@ -375,8 +382,8 @@ def frames_to_c_arrays(frame_paths, condition_name):
         for i in range(len(frame_paths)):
             if i > 0:
                 frame_ptrs += ", "
-            frame_ptrs += f"{var_name}Frame{i}"
-        frame_ptrs += "}};\n\n"
+            frame_ptrs += f"{var_name}Frame{i+1}"
+        frame_ptrs += "};\n\n"
         
         return "".join(c_arrays) + frame_ptrs, len(frame_paths)
     except Exception as e:
@@ -409,7 +416,7 @@ def main():
     print(f"Temp frames directory: {temp_frames_dir}")
     
     # Create header file for OLED bitmap frames
-    header_file_path = os.path.join(os.path.dirname(weather_icons_path), "WeatherAnimationsAnimatedIcons.h")
+    header_file_path = os.path.join(os.path.dirname(weather_icons_path), "../src", "WeatherAnimationsAnimatedIcons.h")
     print(f"Will create header file at: {header_file_path}")
     header_content = """#ifndef WEATHER_ANIMATIONS_ANIMATED_ICONS_H
 #define WEATHER_ANIMATIONS_ANIMATED_ICONS_H
@@ -417,7 +424,18 @@ def main():
 #include <Arduino.h>
 
 // Generated animated bitmap data for weather icons
+// Each frame is 128x64 pixels, stored as 1024 bytes (128*64/8)
 // Original icons from https://github.com/basmilius/weather-icons
+
+"""
+    
+    # Additional data for the WeatherAnimations library
+    header_content += """// Animation frame counts for each weather type
+#define WEATHER_CLEAR_FRAME_COUNT 10
+#define WEATHER_CLOUDY_FRAME_COUNT 10
+#define WEATHER_RAIN_FRAME_COUNT 10
+#define WEATHER_SNOW_FRAME_COUNT 10
+#define WEATHER_STORM_FRAME_COUNT 10
 
 """
     
@@ -529,7 +547,56 @@ const AnimatedIconMapping* findAnimatedWeatherIcon(const char* condition, bool i
 }
 """
     
-    header_content += "#endif // WEATHER_ANIMATIONS_ANIMATED_ICONS_H\n"
+    # At the end, add compatibility functions for the library
+    header_content += """
+// Function to get animation frame for a given weather type and frame number
+const uint8_t* getAnimationFrame(uint8_t weatherType, uint8_t frameIndex) {
+    switch (weatherType) {
+        case 0: // WEATHER_CLEAR
+            if (frameIndex < WEATHER_CLEAR_FRAME_COUNT) {
+                return sunny_dayFrames[frameIndex];
+            }
+            break;
+        case 1: // WEATHER_CLOUDY
+            if (frameIndex < WEATHER_CLOUDY_FRAME_COUNT) {
+                return cloudyFrames[frameIndex];
+            }
+            break;
+        case 2: // WEATHER_RAIN
+            if (frameIndex < WEATHER_RAIN_FRAME_COUNT) {
+                return rainyFrames[frameIndex];
+            }
+            break;
+        case 3: // WEATHER_SNOW
+            if (frameIndex < WEATHER_SNOW_FRAME_COUNT) {
+                return snowyFrames[frameIndex];
+            }
+            break;
+        case 4: // WEATHER_STORM
+            if (frameIndex < WEATHER_STORM_FRAME_COUNT) {
+                return lightningFrames[frameIndex];
+            }
+            break;
+    }
+    
+    // Default to first frame of cloudy if nothing matches
+    return cloudyFrames[0];
+}
+
+// Function to get frame count for a weather type
+uint8_t getAnimationFrameCount(uint8_t weatherType) {
+    switch (weatherType) {
+        case 0: return WEATHER_CLEAR_FRAME_COUNT;
+        case 1: return WEATHER_CLOUDY_FRAME_COUNT;
+        case 2: return WEATHER_RAIN_FRAME_COUNT;
+        case 3: return WEATHER_SNOW_FRAME_COUNT;
+        case 4: return WEATHER_STORM_FRAME_COUNT;
+        default: return WEATHER_CLOUDY_FRAME_COUNT;
+    }
+}
+
+#endif // WEATHER_ANIMATIONS_ANIMATED_ICONS_H
+"""
     
     # Write the header file
     with open(header_file_path, 'w') as f:

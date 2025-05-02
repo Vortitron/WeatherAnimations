@@ -26,6 +26,7 @@
 #include "../../src/WeatherAnimationsAnimations.cpp"
 #include "../../src/WeatherAnimationsIcons.h"
 #include "../../src/WeatherAnimationsIcons.cpp"
+#include "../../src/WeatherAnimationsAnimatedIcons.h"
 
 // Include the library source files as a zip file - uncomment if using installed library
 // #include <WeatherAnimations.h>
@@ -85,16 +86,6 @@ uint8_t currentFrame = 0;
 const int frameDelay = 200; // ms between frames
 const int MAX_FRAMES = 15;  // Most animations have up to 15 frames
 
-// Animation URLs for multiple frames (base URLs - we'll append frame numbers)
-const char* clearSkyDayBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
-const char* clearSkyNightBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_";
-const char* cloudyBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
-const char* rainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
-const char* heavyRainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_";
-const char* snowBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
-const char* stormBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
-const char* stormRainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_";
-
 // Animation state variables
 bool isTransitioning = false;
 unsigned long transitionStartTime = 0;
@@ -109,16 +100,6 @@ uint8_t lastWeatherType = WEATHER_CLEAR;
 	const char* haIP = "YourHomeAssistantIP";
 	const char* haToken = "YourHomeAssistantToken";
 	const char* weatherEntity = "weather.forecast_home";
-	
-	// Animation URLs for OLED display - using PNG frames
-	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_000.png";
-	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_000.png";
-	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_000.png";
-	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_000.png";
-	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_000.png";
-	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_000.png";
-	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_000.png";
-	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_000.png";
 #else
 	// Use the configuration from config.h
 	#ifndef WIFI_SSID
@@ -142,55 +123,6 @@ uint8_t lastWeatherType = WEATHER_CLEAR;
 	const char* haIP = HA_IP;
 	const char* haToken = HA_TOKEN;
 	const char* weatherEntity = HA_WEATHER_ENTITY;
-	
-	// Animation URLs from config (if defined)
-	#ifdef ANIM_CLEAR_DAY
-	const char* clearSkyDayURL = ANIM_CLEAR_DAY;
-	#else
-	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_CLEAR_NIGHT
-	const char* clearSkyNightURL = ANIM_CLEAR_NIGHT;
-	#else
-	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_CLOUDY
-	const char* cloudyURL = ANIM_CLOUDY;
-	#else
-	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_RAIN
-	const char* rainURL = ANIM_RAIN;
-	#else
-	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_HEAVY_RAIN
-	const char* heavyRainURL = ANIM_HEAVY_RAIN;
-	#else
-	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_SNOW
-	const char* snowURL = ANIM_SNOW;
-	#else
-	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_STORM
-	const char* stormURL = ANIM_STORM;
-	#else
-	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_000.png";
-	#endif
-	
-	#ifdef ANIM_STORM_RAIN
-	const char* stormRainURL = ANIM_STORM_RAIN;
-	#else
-	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_000.png";
-	#endif
 #endif
 
 // Create WeatherAnimations instance
@@ -460,60 +392,6 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 	display.display();
 }
 
-// Function to get frame URL for animation
-String getFrameURL(const char* baseURL, int frameNum) {
-	char buffer[150];
-	sprintf(buffer, "%s%03d.png", baseURL, frameNum);
-	return String(buffer);
-}
-
-// Preload animation frames for a given weather type
-void preloadAnimationFrames(uint8_t weatherType) {
-	// Do nothing if not connected to WiFi
-	if (WiFi.status() != WL_CONNECTED) {
-		Serial.println("Cannot preload - WiFi not connected");
-		return;
-	}
-	
-	Serial.print("Preloading animation frames for weather type: ");
-	Serial.println(getWeatherTypeName(weatherType));
-	
-	// Get the base URL for animations
-	const char* baseURL = NULL;
-	switch(weatherType) {
-		case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
-		case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
-		case WEATHER_RAIN: baseURL = rainBaseURL; break;
-		case WEATHER_SNOW: baseURL = snowBaseURL; break;
-		case WEATHER_STORM: baseURL = stormBaseURL; break;
-	}
-	
-	if (!baseURL) {
-		Serial.println("No base URL found for this weather type");
-		return;
-	}
-	
-	// Use HTTPClient to download each frame
-	HTTPClient http;
-	
-	// Start with frame 0
-	for (int i = 0; i < 3; i++) { // Only preload first few frames
-		String frameURL = getFrameURL(baseURL, i);
-		Serial.print("Preloading frame ");
-		Serial.print(i);
-		Serial.print(": ");
-		Serial.println(frameURL);
-		
-		// Set the animation source (this will trigger a download)
-		weatherAnim.setOnlineAnimationSource(weatherType, frameURL.c_str());
-		
-		// Brief delay to allow download to start
-		delay(100);
-	}
-	
-	Serial.println("Preloading complete");
-}
-
 // Update the weather type - to be called when changing weather
 void updateWeatherType(uint8_t newWeatherType, bool animate) {
 	Serial.print("Updating to weather type: ");
@@ -530,52 +408,15 @@ void updateWeatherType(uint8_t newWeatherType, bool animate) {
 		isTransitioning = true;
 		transitionStartTime = millis();
 		
-		// Get the base URL for this weather type
-		const char* baseURL = NULL;
-		switch(newWeatherType) {
-			case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
-			case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
-			case WEATHER_RAIN: baseURL = rainBaseURL; break;
-			case WEATHER_SNOW: baseURL = snowBaseURL; break;
-			case WEATHER_STORM: baseURL = stormBaseURL; break;
-		}
-		
-		if (baseURL) {
-			// Set up the first frame of the animation
-			String frameURL = getFrameURL(baseURL, 0);
-			Serial.print("Setting first animation frame: ");
-			Serial.println(frameURL);
-			weatherAnim.setOnlineAnimationSource(newWeatherType, frameURL.c_str());
-		}
-		
 		// Use a random transition type for variety
 		uint8_t transitionType = random(5);
 		weatherAnim.runTransition(newWeatherType, transitionType, transitionDuration);
 		
-		// Preload animation frames in the background
-		preloadAnimationFrames(newWeatherType);
-		
 		Serial.print("Starting transition type: ");
 		Serial.println(transitionType);
 	} else {
-		// For static mode, use direct drawing and no transition
-		const char* staticURL = NULL;
-		switch(newWeatherType) {
-			case WEATHER_CLEAR: staticURL = clearSkyDayURL; break;
-			case WEATHER_CLOUDY: staticURL = cloudyURL; break;
-			case WEATHER_RAIN: staticURL = rainURL; break;
-			case WEATHER_SNOW: staticURL = snowURL; break;
-			case WEATHER_STORM: staticURL = stormURL; break;
-		}
-		
-		if (staticURL) {
-			Serial.print("Setting static image: ");
-			Serial.println(staticURL);
-			weatherAnim.setOnlineAnimationSource(newWeatherType, staticURL);
-		}
-		
-		// Use immediate transition (no animation effect)
-		weatherAnim.runTransition(newWeatherType, TRANSITION_NONE, 0);
+		// For static mode, use our own drawing and a quick transition
+		weatherAnim.runTransition(newWeatherType, TRANSITION_FADE, 10);
 		
 		// For static mode, use our own drawing as well
 		drawStaticWeather(newWeatherType);
@@ -628,60 +469,34 @@ void setup() {
 	
 	// Initialize the WeatherAnimations library
 	weatherAnim.begin(OLED_SH1106, OLED_ADDR, false);
-	
-	// Set animation mode to online to use online resources
-	weatherAnim.setAnimationMode(ANIMATION_ONLINE);
-	
+
+	// Set animation mode to EMBEDDED instead of ONLINE
+	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
-	
-	// Configure static frames for each weather type first
-	Serial.println("Setting up animation frames...");
-	
-	// Set static frames for each weather type - use exact URLs
-	Serial.println("Setting up static PNG images for each weather type...");
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyDayURL);
-	Serial.print("CLEAR: "); 
-	Serial.println(clearSkyDayURL);
 
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
-	Serial.print("CLOUDY: ");
-	Serial.println(cloudyURL);
-
-	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
-	Serial.print("RAIN: ");
-	Serial.println(rainURL);
-
-	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
-	Serial.print("SNOW: ");
-	Serial.println(snowURL);
-
-	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
-	Serial.print("STORM: ");
-	Serial.println(stormURL);
-
-	// Use SIMPLE_TRANSITION mode for manual control
+	// Configure for simple transition mode
+	Serial.println("Setting up for embedded animations...");
 	weatherAnim.setMode(SIMPLE_TRANSITION);
 
-	// Connect to WiFi for loading images
-	Serial.println("Connecting to WiFi for online animations...");
-	if (connectToWiFi()) {
-		Serial.println("WiFi Connected - attempting to load initial images");
-		
-		// Force the library to show the first weather type (using runTransition instead of displayWeather)
-		weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_NONE, 0);
-	} else {
-		Serial.println("WiFi connection failed - will use built-in animations");
-	}
+	// Tell the library to use our embedded animations
+	Serial.println("Initializing embedded animations...");
+	// The following line only needed if the library has a method to explicitly use the animations
+	// weatherAnim.useEmbeddedAnimations(true);
 
-	// Give time for the first image to load
-	Serial.println("Waiting for initial image to load...");
-	delay(1000);
+	// Connect to WiFi for future weather data
+	Serial.println("Connecting to WiFi for weather data...");
+	if (connectToWiFi()) {
+		Serial.println("WiFi Connected");
+	} else {
+		Serial.println("WiFi connection failed - will use manual mode only");
+	}
 
 	// Display initial weather in static mode
 	lastWeatherType = WEATHER_TYPES[currentWeatherIndex];
 	drawStaticWeather(lastWeatherType);
-	
+
 	Serial.println("Setup complete!");
 	printCurrentState();
 }
@@ -784,11 +599,6 @@ void handleButtons() {
 				
 				// Update using the unified helper function
 				updateWeatherType(currentWeatherType, animatedMode);
-				
-				// If switching to animated mode, preload the frames
-				if (animatedMode) {
-					preloadAnimationFrames(currentWeatherType);
-				}
 			} else {
 				// In live mode, get the current weather and update
 				uint8_t currentWeather = fetchWeatherData();
@@ -831,43 +641,20 @@ void loop() {
 			lastFrameTime = currentMillis;
 			
 			// Cycle through frames (limit to actual frame count for each animation)
-			currentFrame = (currentFrame + 1) % MAX_FRAMES;
+			currentFrame = (currentFrame + 1) % getAnimationFrameCount(lastWeatherType);
 			
-			// Get the base URL for the current weather type
-			const char* baseURL = NULL;
-			switch(lastWeatherType) {
-				case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
-				case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
-				case WEATHER_RAIN: baseURL = rainBaseURL; break;
-				case WEATHER_SNOW: baseURL = snowBaseURL; break;
-				case WEATHER_STORM: baseURL = stormBaseURL; break;
-			}
-			
-			if (baseURL) {
-				// Get the URL for this frame
-				String frameURL = getFrameURL(baseURL, currentFrame);
-				
-				// Log the frame change (every 5 frames to avoid flooding)
-				if (currentFrame % 5 == 0) {
-					Serial.print("Showing frame ");
-					Serial.print(currentFrame + 1);
-					Serial.print("/");
-					Serial.print(MAX_FRAMES);
-					Serial.print(" for weather: ");
-					Serial.println(getWeatherTypeName(lastWeatherType));
-					Serial.print("URL: ");
-					Serial.println(frameURL);
-				}
-				
-				// Update the animation source
-				weatherAnim.setOnlineAnimationSource(lastWeatherType, frameURL.c_str());
-				
-				// Force a direct display update to show the new frame
-				weatherAnim.runTransition(lastWeatherType, TRANSITION_NONE, 0);
-			}
-			
-			// Also use our manual drawing as a fallback 
+			// Use our manual drawing to show the animation frame
 			drawAnimatedWeather(lastWeatherType, currentFrame);
+			
+			// Log the frame change (every 5 frames to avoid flooding)
+			if (currentFrame % 5 == 0) {
+				Serial.print("Showing frame ");
+				Serial.print(currentFrame + 1);
+				Serial.print("/");
+				Serial.print(getAnimationFrameCount(lastWeatherType));
+				Serial.print(" for weather: ");
+				Serial.println(getWeatherTypeName(lastWeatherType));
+			}
 		}
 		
 		// Allow the library to process any updates
