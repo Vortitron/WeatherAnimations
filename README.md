@@ -21,8 +21,9 @@ A library for displaying animated weather icons on a SH1106 OLED display connect
 This library requires the following Arduino libraries:
 
 - [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)
-- [Adafruit SH110X Library](https://github.com/adafruit/Adafruit_SH110x)
-- [U8g2lib](https://github.com/olikraus/u8g2)
+- [Adafruit SH110X Library](https://github.com/adafruit/Adafruit_SH110x) or [Adafruit SSD1306 Library](https://github.com/adafruit/Adafruit_SSD1306)
+- [U8g2lib](https://github.com/olikraus/u8g2) (if using the original WeatherAnimations functions)
+- [ArduinoJson](https://arduinojson.org/) (for Home Assistant API integration)
 - Arduino ESP32 core
 
 ## Installation
@@ -37,8 +38,8 @@ This library requires the following Arduino libraries:
    - In Arduino IDE: Sketch > Include Library > Manage Libraries
    - Search and install:
      - "Adafruit GFX Library"
-     - "Adafruit SH110X"
-     - "U8g2"
+     - "Adafruit SSD1306" (recommended for SH1106 displays on ESP32)
+     - "ArduinoJson"
 
 ### Configuration
 
@@ -53,7 +54,36 @@ This library requires the following Arduino libraries:
 
 ### Basic Example
 
-Load the `BasicUsage` example to display weather animations with manual control:
+There are two main examples provided:
+
+#### 1. BasicDisplay Example
+
+A simple example using just the Adafruit_SSD1306 library to display static and animated weather icons:
+
+```arduino
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// Create display
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+
+void setup() {
+  // Initialize display
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  
+  // Display weather
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("SUNNY");
+  display.display();
+}
+```
+
+#### 2. WeatherAnimations Library Usage
+
+If the simpler example works and you want to use the full library:
 
 ```arduino
 // Initialize the library
@@ -74,26 +104,54 @@ weatherAnim.update();
 
 ### Buttons in Demo
 
-The demo example uses three buttons:
+The demo examples use three buttons:
 - Button 1 (Encoder push): Cycle through different weather types
 - Button 2 (Back): Return to live weather data from Home Assistant
 - Button 3 (Left): Toggle between static and animated icons
 
-### Display Transitions
+## SSD1306 Library for SH1106 Displays
 
-You can manually trigger transitions between weather types:
+**Important Note**: While the SH1106 and SSD1306 are different OLED controllers, the SSD1306 library often works better with SH1106 displays on ESP32. If you're experiencing crashes or display issues with the SH110X library, we recommend using the Adafruit_SSD1306 library instead.
 
-```arduino
-// Transition to a specific weather with right-to-left animation
-weatherAnim.runTransition(WEATHER_CLEAR, TRANSITION_RIGHT_TO_LEFT, 500);
-```
+### Benefits of using SSD1306 library:
 
-Available transition types:
-- `TRANSITION_LEFT_TO_RIGHT`
-- `TRANSITION_RIGHT_TO_LEFT`
-- `TRANSITION_TOP_TO_BOTTOM`
-- `TRANSITION_BOTTOM_TO_TOP`
-- `TRANSITION_FADE`
+1. Better compatibility with ESP32
+2. More stable operation
+3. Well-tested codebase
+4. Includes all necessary graphics functions
+
+### How to switch from SH110X to SSD1306:
+
+1. Replace library includes:
+   ```arduino
+   // Instead of:
+   // #include <Adafruit_SH110X.h>
+   // Adafruit_SH1106G display(128, 64, &Wire, -1);
+   
+   // Use:
+   #include <Adafruit_SSD1306.h>
+   Adafruit_SSD1306 display(128, 64, &Wire, -1);
+   ```
+
+2. Change initialization:
+   ```arduino
+   // Instead of:
+   // display.begin(0x3C, true);
+   
+   // Use:
+   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+   ```
+
+3. Update color constants:
+   ```arduino
+   // Instead of:
+   // display.setTextColor(SH110X_WHITE);
+   
+   // Use:
+   display.setTextColor(SSD1306_WHITE);
+   ```
+
+The `BasicDisplay` example is already set up to use the SSD1306 library with the SH1106 display, and we've included a version of `BasicUsage` that also uses this approach.
 
 ## Troubleshooting
 
@@ -103,7 +161,7 @@ If you're having trouble with the SH1106 display:
 - Verify the I2C address (typically 0x3C or 0x3D)
 - Check the I2C connections (SDA and SCL)
 - Try a lower I2C speed if you experience issues
-- Make sure you've installed the Adafruit SH110X library
+- Try using the Adafruit SSD1306 library instead of the SH110X library
 
 ### Home Assistant Connection
 
@@ -130,33 +188,8 @@ If your ESP32 crashes or freezes during animation display:
 
 4. **Alternative Approach**: If animations still don't work:
    - Use the `BasicDisplay` example which doesn't use the animation features
-   - Create your own simple weather display using just the Adafruit SH110X library
+   - Create your own simple weather display using just the SSD1306 library
    - Consider modifying the library to use only one display driver (either U8g2 or Adafruit)
-
-### Using Only Adafruit Libraries
-
-For a more reliable setup, you can create a simpler weather display using just the Adafruit libraries:
-
-```arduino
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SH110X.h>
-
-// Create display
-Adafruit_SH1106G display(128, 64, &Wire, -1);
-
-void setup() {
-  // Initialize display
-  display.begin(0x3C, true);
-  display.clearDisplay();
-  
-  // Display weather
-  display.setTextSize(2);
-  display.setTextColor(SH110X_WHITE);
-  display.println("SUNNY");
-  display.display();
-}
-```
 
 ## Contributing
 
