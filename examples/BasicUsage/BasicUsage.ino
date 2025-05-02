@@ -467,6 +467,84 @@ String getFrameURL(const char* baseURL, int frameNum) {
 	return String(buffer);
 }
 
+// Preload animation frames for a given weather type
+void preloadAnimationFrames(uint8_t weatherType) {
+	// Do nothing if not connected to WiFi
+	if (WiFi.status() != WL_CONNECTED) {
+		Serial.println("Cannot preload - WiFi not connected");
+		return;
+	}
+	
+	Serial.print("Preloading animation frames for weather type: ");
+	Serial.println(getWeatherTypeName(weatherType));
+	
+	// Get the base URL for animations
+	const char* baseURL = NULL;
+	switch(weatherType) {
+		case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
+		case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
+		case WEATHER_RAIN: baseURL = rainBaseURL; break;
+		case WEATHER_SNOW: baseURL = snowBaseURL; break;
+		case WEATHER_STORM: baseURL = stormBaseURL; break;
+	}
+	
+	if (!baseURL) {
+		Serial.println("No base URL found for this weather type");
+		return;
+	}
+	
+	// Use HTTPClient to download each frame
+	HTTPClient http;
+	
+	// Start with frame 0
+	for (int i = 0; i < 3; i++) { // Only preload first few frames
+		String frameURL = getFrameURL(baseURL, i);
+		Serial.print("Preloading frame ");
+		Serial.print(i);
+		Serial.print(": ");
+		Serial.println(frameURL);
+		
+		// Set the animation source (this will trigger a download)
+		weatherAnim.setOnlineAnimationSource(weatherType, frameURL.c_str());
+		
+		// Brief delay to allow download to start
+		delay(100);
+	}
+	
+	Serial.println("Preloading complete");
+}
+
+// Update the weather type - to be called when changing weather
+void updateWeatherType(uint8_t newWeatherType, bool animate) {
+	Serial.print("Updating to weather type: ");
+	Serial.println(getWeatherTypeName(newWeatherType));
+	
+	// Update lastWeatherType to keep track of current selection
+	lastWeatherType = newWeatherType;
+	
+	// Reset animation frame
+	currentFrame = 0;
+	
+	if (animate) {
+		// If in animated mode, start a transition
+		isTransitioning = true;
+		transitionStartTime = millis();
+		
+		// Use a random transition type for variety
+		uint8_t transitionType = random(5);
+		weatherAnim.runTransition(newWeatherType, transitionType, transitionDuration);
+		
+		// Preload animation frames in the background
+		preloadAnimationFrames(newWeatherType);
+		
+		Serial.print("Starting transition type: ");
+		Serial.println(transitionType);
+	} else {
+		// For static mode, use direct drawing
+		drawStaticWeather(newWeatherType);
+	}
+}
+
 void setup() {
 	// Initialize serial for debugging
 	Serial.begin(115200);
@@ -523,20 +601,49 @@ void setup() {
 	// Configure static frames for each weather type first
 	Serial.println("Setting up animation frames...");
 	
-	// Set static frames for each weather type
+	// Set static frames for each weather type - use exact URLs
+	Serial.println("Setting up static PNG images for each weather type...");
 	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, clearSkyDayURL);
+	Serial.print("CLEAR: "); 
+	Serial.println(clearSkyDayURL);
+
 	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
+	Serial.print("CLOUDY: ");
+	Serial.println(cloudyURL);
+
 	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
+	Serial.print("RAIN: ");
+	Serial.println(rainURL);
+
 	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
+	Serial.print("SNOW: ");
+	Serial.println(snowURL);
+
 	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
-	
+	Serial.print("STORM: ");
+	Serial.println(stormURL);
+
 	// Use SIMPLE_TRANSITION mode for manual control
 	weatherAnim.setMode(SIMPLE_TRANSITION);
-	
-	// Connect to WiFi for potentially loading images
+
+	// Set display update interval (shorter for better responsiveness)
+	weatherAnim.setRefreshInterval(100);
+
+	// Connect to WiFi for loading images
 	Serial.println("Connecting to WiFi for online animations...");
-	connectToWiFi();
-	
+	if (connectToWiFi()) {
+		Serial.println("WiFi Connected - attempting to load initial images");
+		
+		// Force the library to load the first image
+		weatherAnim.displayWeather(WEATHER_TYPES[currentWeatherIndex]);
+	} else {
+		Serial.println("WiFi connection failed - will use built-in animations");
+	}
+
+	// Give time for the first image to load
+	Serial.println("Waiting for initial image to load...");
+	delay(1000);
+
 	// Display initial weather in static mode
 	lastWeatherType = WEATHER_TYPES[currentWeatherIndex];
 	drawStaticWeather(lastWeatherType);
@@ -560,6 +667,7 @@ void handleButtons() {
 		// If button has been stable in LOW state
 		if (encoderPushState == LOW && lastEncoderPushState == LOW) {
 			Serial.println("\n>>> ENCODER BUTTON PRESSED");
+			
 			// Enter manual mode if not already
 			manualMode = true;
 			
@@ -570,45 +678,8 @@ void handleButtons() {
 			Serial.print("Changed to weather type: ");
 			Serial.println(getWeatherTypeName(newWeatherType));
 			
-			// Update lastWeatherType to keep track of current selection
-			lastWeatherType = newWeatherType;
-			
-			// Update display based on animation mode
-			if (animatedMode) {
-				// Reset animation frame counter when changing weather
-				currentFrame = 0;
-				
-				// Start transition to new weather type
-				isTransitioning = true;
-				transitionStartTime = millis();
-				
-				// Update the animation source for the first frame
-				const char* baseURL = NULL;
-				switch(newWeatherType) {
-					case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
-					case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
-					case WEATHER_RAIN: baseURL = rainBaseURL; break;
-					case WEATHER_SNOW: baseURL = snowBaseURL; break;
-					case WEATHER_STORM: baseURL = stormBaseURL; break;
-				}
-				
-				if (baseURL) {
-					String frameURL = getFrameURL(baseURL, 0);
-					Serial.print("Setting animation to: ");
-					Serial.println(frameURL);
-					weatherAnim.setOnlineAnimationSource(newWeatherType, frameURL.c_str());
-				}
-				
-				// Use a visible transition
-				uint8_t transitionType = random(5); // Random transition for variety
-				weatherAnim.runTransition(newWeatherType, transitionType, transitionDuration);
-				
-				Serial.print("Starting transition type: ");
-				Serial.println(transitionType);
-			} else {
-				// For static mode, use our own drawing
-				drawStaticWeather(newWeatherType);
-			}
+			// Update the display using our new helper function
+			updateWeatherType(newWeatherType, animatedMode);
 			
 			// Show current state
 			printCurrentState();
@@ -677,48 +748,17 @@ void handleButtons() {
 			if (manualMode) {
 				uint8_t currentWeatherType = WEATHER_TYPES[currentWeatherIndex];
 				
+				// Update using the unified helper function
+				updateWeatherType(currentWeatherType, animatedMode);
+				
+				// If switching to animated mode, preload the frames
 				if (animatedMode) {
-					// Reset to first frame when enabling animation
-					currentFrame = 0;
-					
-					// Make sure we're showing the right animation type
-					lastWeatherType = currentWeatherType;
-					
-					// Start the animation with our manual drawing
-					drawAnimatedWeather(currentWeatherType, currentFrame);
-					
-					// Check if we need to fetch any animation resources
-					const char* baseURL = NULL;
-					switch(currentWeatherType) {
-						case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
-						case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
-						case WEATHER_RAIN: baseURL = rainBaseURL; break;
-						case WEATHER_SNOW: baseURL = snowBaseURL; break;
-						case WEATHER_STORM: baseURL = stormBaseURL; break;
-					}
-					
-					if (baseURL) {
-						// Pre-fetch the first animation frame URL
-						String frameURL = getFrameURL(baseURL, 0);
-						Serial.print("Setting first animation frame: ");
-						Serial.println(frameURL);
-						weatherAnim.setOnlineAnimationSource(currentWeatherType, frameURL.c_str());
-					}
-				} else {
-					// Switch back to static display
-					drawStaticWeather(currentWeatherType);
+					preloadAnimationFrames(currentWeatherType);
 				}
 			} else {
-				// Fetch current weather
+				// In live mode, get the current weather and update
 				uint8_t currentWeather = fetchWeatherData();
-				
-				if (animatedMode) {
-					currentFrame = 0;
-					lastWeatherType = currentWeather;
-					drawAnimatedWeather(currentWeather, currentFrame);
-				} else {
-					drawStaticWeather(currentWeather);
-				}
+				updateWeatherType(currentWeather, animatedMode);
 			}
 			
 			// Show current state
@@ -756,13 +796,10 @@ void loop() {
 		if (currentMillis - lastFrameTime >= frameDelay) {
 			lastFrameTime = currentMillis;
 			
-			// Cycle through frames
+			// Cycle through frames (limit to actual frame count for each animation)
 			currentFrame = (currentFrame + 1) % MAX_FRAMES;
 			
-			// Use our own drawing function for direct animation
-			drawAnimatedWeather(lastWeatherType, currentFrame);
-			
-			// Also update the library's animation source for continuity
+			// Get the base URL for the current weather type
 			const char* baseURL = NULL;
 			switch(lastWeatherType) {
 				case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
@@ -773,23 +810,34 @@ void loop() {
 			}
 			
 			if (baseURL) {
-				// Only update the library periodically to avoid network congestion
-				if (currentFrame % 3 == 0) {
-					String frameURL = getFrameURL(baseURL, currentFrame);
-					weatherAnim.setOnlineAnimationSource(lastWeatherType, frameURL.c_str());
+				// Get the URL for this frame
+				String frameURL = getFrameURL(baseURL, currentFrame);
+				
+				// Log the frame change (every 5 frames to avoid flooding)
+				if (currentFrame % 5 == 0) {
+					Serial.print("Showing frame ");
+					Serial.print(currentFrame + 1);
+					Serial.print("/");
+					Serial.print(MAX_FRAMES);
+					Serial.print(" for weather: ");
+					Serial.println(getWeatherTypeName(lastWeatherType));
+					Serial.print("URL: ");
+					Serial.println(frameURL);
 				}
+				
+				// Update the animation source
+				weatherAnim.setOnlineAnimationSource(lastWeatherType, frameURL.c_str());
+				
+				// Force a direct display update to show the new frame
+				weatherAnim.displayWeather(lastWeatherType);
 			}
 			
-			// Debug output (only every 5 frames to reduce serial output)
-			if (currentFrame % 5 == 0) {
-				Serial.print("Showing frame ");
-				Serial.print(currentFrame + 1);
-				Serial.print("/");
-				Serial.print(MAX_FRAMES);
-				Serial.print(" for weather: ");
-				Serial.println(getWeatherTypeName(lastWeatherType));
-			}
+			// Also use our manual drawing as a fallback 
+			drawAnimatedWeather(lastWeatherType, currentFrame);
 		}
+		
+		// Allow the library to process any updates
+		weatherAnim.update();
 	} 
 	// If in live mode (not manual), use the WeatherAnimations library
 	else if (!manualMode) {
