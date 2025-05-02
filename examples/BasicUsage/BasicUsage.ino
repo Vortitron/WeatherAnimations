@@ -18,8 +18,9 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-//STOP REMOVING THESE .. We need them for the library to work 
-// Include the library source files directly for development - comment out if using installed library
+// IMPORTANT: Include order matters to avoid naming conflicts
+// The animated icons header uses "animated_" prefixed variables to avoid
+// conflicts with similarly named variables in WeatherAnimationsAnimations.cpp
 #include "../../src/WeatherAnimations.h"
 #include "../../src/WeatherAnimations.cpp"
 #include "../../src/WeatherAnimationsAnimations.h"
