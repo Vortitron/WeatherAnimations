@@ -426,9 +426,9 @@ void handleButtons() {
 		lastEncoderDebounceTime = millis();
 	}
 	
-	if ((millis() - lastEncoderDebounceTime) > debounceDelay) {
-		// If the push button state has changed and is now LOW (pressed)
-		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
+	if ((millis() - lastEncoderDebounceTime) > debounceDelay && lastEncoderDebounceTime != 0) {
+		// If button has been stable in LOW state
+		if (encoderPushState == LOW && lastEncoderPushState == LOW) {
 			Serial.println("\n>>> ENCODER BUTTON PRESSED");
 			// Enter manual mode if not already
 			manualMode = true;
@@ -449,6 +449,9 @@ void handleButtons() {
 			
 			// Show current state
 			printCurrentState();
+			
+			// Reset debounce timer after handling the press
+			lastEncoderDebounceTime = 0;
 		}
 	}
 	
@@ -457,9 +460,9 @@ void handleButtons() {
 		lastBackDebounceTime = millis();
 	}
 	
-	if ((millis() - lastBackDebounceTime) > debounceDelay) {
-		// If the back button state has changed and is now LOW (pressed)
-		if (backButtonState == LOW && lastBackButtonState == HIGH) {
+	if ((millis() - lastBackDebounceTime) > debounceDelay && lastBackDebounceTime != 0) {
+		// If button has been stable in LOW state
+		if (backButtonState == LOW && lastBackButtonState == LOW) {
 			Serial.println("\n>>> BACK BUTTON PRESSED");
 			
 			// Exit manual mode if currently in it
@@ -485,6 +488,9 @@ void handleButtons() {
 				
 				printCurrentState();
 			}
+			
+			// Reset debounce timer after handling the press
+			lastBackDebounceTime = 0;
 		}
 	}
 	
@@ -493,9 +499,9 @@ void handleButtons() {
 		lastLeftDebounceTime = millis();
 	}
 	
-	if ((millis() - lastLeftDebounceTime) > debounceDelay) {
-		// If the left button state has changed and is now LOW (pressed)
-		if (leftButtonState == LOW && lastLeftButtonState == HIGH) {
+	if ((millis() - lastLeftDebounceTime) > debounceDelay && lastLeftDebounceTime != 0) {
+		// If button has been stable in LOW state
+		if (leftButtonState == LOW && lastLeftButtonState == LOW) {
 			Serial.println("\n>>> LEFT BUTTON PRESSED");
 			
 			// Toggle animation mode
@@ -526,6 +532,9 @@ void handleButtons() {
 			
 			// Show current state
 			printCurrentState();
+			
+			// Reset debounce timer after handling the press
+			lastLeftDebounceTime = 0;
 		}
 	}
 	

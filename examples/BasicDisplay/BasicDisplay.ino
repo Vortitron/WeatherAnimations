@@ -152,9 +152,9 @@ void handleButtons() {
     lastEncoderDebounceTime = millis();
   }
   
-  if ((millis() - lastEncoderDebounceTime) > debounceDelay) {
-    // If button is pressed (LOW)
-    if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
+  if ((millis() - lastEncoderDebounceTime) > debounceDelay && lastEncoderDebounceTime != 0) {
+    // If button is pressed (LOW) and has been stable in that state
+    if (encoderPushState == LOW && lastEncoderPushState == LOW) {
       Serial.println("Button pressed - changing display state");
       
       // Cycle to next state
@@ -162,6 +162,9 @@ void handleButtons() {
       
       // Update display
       displayWeather(displayState);
+      
+      // Reset debounce timer after handling the press
+      lastEncoderDebounceTime = 0;
     }
   }
   
