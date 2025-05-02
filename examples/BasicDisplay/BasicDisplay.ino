@@ -14,6 +14,14 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+// Include the library source files directly for development
+#include "../../src/WeatherAnimations.h"
+#include "../../src/WeatherAnimations.cpp"
+#include "../../src/WeatherAnimationsAnimations.h"
+#include "../../src/WeatherAnimationsAnimations.cpp"
+#include "../../src/WeatherAnimationsIcons.h"
+#include "../../src/WeatherAnimationsIcons.cpp"
+
 // Define button pins
 const int encoderPUSH = 27; // Button to cycle through screens
 const int backButton = 14;  // Back button 
@@ -27,6 +35,9 @@ const int leftButton = 12;  // Left button
 
 // Create display instance using SSD1306 library
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Create WeatherAnimations instance - we don't need WiFi for this basic example
+WeatherAnimations weatherAnim("", "", "", "");
 
 // Button state variables
 bool lastEncoderPushState = HIGH;
@@ -83,6 +94,9 @@ void setup() {
   display.display();
   
   Serial.println("Setup complete. Press the encoder button to cycle through screens.");
+  
+  // Initialize the WeatherAnimations library (no WiFi)
+  weatherAnim.begin(SSD1306_DISPLAY, 0, false);
 }
 
 void displayWeather(int weatherIndex) {
@@ -100,34 +114,8 @@ void displayWeather(int weatherIndex) {
   display.setTextSize(2);
   display.println(WEATHER_TYPES[weatherIndex]);
   
-  // Draw a simple icon based on weather
-  switch (weatherIndex) {
-    case 0: // CLEAR - draw a sun
-      display.fillCircle(96, 32, 12, SSD1306_WHITE);
-      break;
-    case 1: // CLOUDY - draw a cloud
-      display.fillRoundRect(84, 30, 30, 15, 5, SSD1306_WHITE);
-      display.fillRoundRect(80, 20, 20, 15, 5, SSD1306_WHITE);
-      break;
-    case 2: // RAIN - draw rain drops
-      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
-      for (int i = 0; i < 4; i++) {
-        display.drawLine(86 + i*8, 38, 90 + i*8, 45, SSD1306_WHITE);
-      }
-      break;
-    case 3: // SNOW - draw snowflakes
-      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
-      for (int i = 0; i < 4; i++) {
-        display.drawCircle(86 + i*8, 42, 2, SSD1306_WHITE);
-      }
-      break;
-    case 4: // STORM - draw lightning
-      display.fillRoundRect(84, 20, 30, 15, 5, SSD1306_WHITE);
-      display.drawLine(100, 38, 94, 48, SSD1306_WHITE);
-      display.drawLine(94, 48, 100, 48, SSD1306_WHITE);
-      display.drawLine(100, 48, 94, 58, SSD1306_WHITE);
-      break;
-  }
+  // Draw weather icon using the WeatherAnimations library
+  weatherAnim.drawSSD1306Icon(&display, weatherIndex, 96, 32);
   
   // Display state number
   display.setTextSize(1);

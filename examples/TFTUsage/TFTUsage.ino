@@ -56,7 +56,8 @@ int currentWeatherIndex = 0;
 bool manualMode = false;
 bool lastEncoderPushState = HIGH;
 bool lastBackButtonState = HIGH;
-unsigned long lastDebounceTime = 0;
+unsigned long lastEncoderDebounceTime = 0;
+unsigned long lastBackDebounceTime = 0;
 const unsigned long debounceDelay = 50;
 
 // Network and API credentials
@@ -154,12 +155,12 @@ void handleButtons() {
 	
 	// Handle encoder push button (with debounce)
 	if (encoderPushState != lastEncoderPushState) {
-		lastDebounceTime = millis();
+		lastEncoderDebounceTime = millis();
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
-		// If the push button state has changed and is now LOW (pressed)
-		if (encoderPushState == LOW && lastEncoderPushState == HIGH) {
+	if ((millis() - lastEncoderDebounceTime) > debounceDelay && lastEncoderDebounceTime != 0) {
+		// If button has been stable in LOW state
+		if (encoderPushState == LOW && lastEncoderPushState == LOW) {
 			// Enter manual mode if not already
 			manualMode = true;
 			
@@ -173,17 +174,20 @@ void handleButtons() {
 			Serial.print("Manual mode: Showing animation ");
 			Serial.println(currentWeatherIndex);
 			#endif
+			
+			// Reset debounce timer after handling the press
+			lastEncoderDebounceTime = 0;
 		}
 	}
 	
 	// Handle back button (with debounce)
 	if (backButtonState != lastBackButtonState) {
-		lastDebounceTime = millis();
+		lastBackDebounceTime = millis();
 	}
 	
-	if ((millis() - lastDebounceTime) > debounceDelay) {
-		// If the back button state has changed and is now LOW (pressed)
-		if (backButtonState == LOW && lastBackButtonState == HIGH) {
+	if ((millis() - lastBackDebounceTime) > debounceDelay && lastBackDebounceTime != 0) {
+		// If button has been stable in LOW state
+		if (backButtonState == LOW && lastBackButtonState == LOW) {
 			// Exit manual mode
 			if (manualMode) {
 				manualMode = false;
@@ -191,6 +195,9 @@ void handleButtons() {
 				Serial.println("Returning to live weather data");
 				#endif
 			}
+			
+			// Reset debounce timer after handling the press
+			lastBackDebounceTime = 0;
 		}
 	}
 	
