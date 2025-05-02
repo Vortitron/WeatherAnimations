@@ -530,6 +530,24 @@ void updateWeatherType(uint8_t newWeatherType, bool animate) {
 		isTransitioning = true;
 		transitionStartTime = millis();
 		
+		// Get the base URL for this weather type
+		const char* baseURL = NULL;
+		switch(newWeatherType) {
+			case WEATHER_CLEAR: baseURL = clearSkyDayBaseURL; break;
+			case WEATHER_CLOUDY: baseURL = cloudyBaseURL; break;
+			case WEATHER_RAIN: baseURL = rainBaseURL; break;
+			case WEATHER_SNOW: baseURL = snowBaseURL; break;
+			case WEATHER_STORM: baseURL = stormBaseURL; break;
+		}
+		
+		if (baseURL) {
+			// Set up the first frame of the animation
+			String frameURL = getFrameURL(baseURL, 0);
+			Serial.print("Setting first animation frame: ");
+			Serial.println(frameURL);
+			weatherAnim.setOnlineAnimationSource(newWeatherType, frameURL.c_str());
+		}
+		
 		// Use a random transition type for variety
 		uint8_t transitionType = random(5);
 		weatherAnim.runTransition(newWeatherType, transitionType, transitionDuration);
@@ -540,7 +558,26 @@ void updateWeatherType(uint8_t newWeatherType, bool animate) {
 		Serial.print("Starting transition type: ");
 		Serial.println(transitionType);
 	} else {
-		// For static mode, use direct drawing
+		// For static mode, use direct drawing and no transition
+		const char* staticURL = NULL;
+		switch(newWeatherType) {
+			case WEATHER_CLEAR: staticURL = clearSkyDayURL; break;
+			case WEATHER_CLOUDY: staticURL = cloudyURL; break;
+			case WEATHER_RAIN: staticURL = rainURL; break;
+			case WEATHER_SNOW: staticURL = snowURL; break;
+			case WEATHER_STORM: staticURL = stormURL; break;
+		}
+		
+		if (staticURL) {
+			Serial.print("Setting static image: ");
+			Serial.println(staticURL);
+			weatherAnim.setOnlineAnimationSource(newWeatherType, staticURL);
+		}
+		
+		// Use immediate transition (no animation effect)
+		weatherAnim.runTransition(newWeatherType, TRANSITION_NONE, 0);
+		
+		// For static mode, use our own drawing as well
 		drawStaticWeather(newWeatherType);
 	}
 }
@@ -626,16 +663,13 @@ void setup() {
 	// Use SIMPLE_TRANSITION mode for manual control
 	weatherAnim.setMode(SIMPLE_TRANSITION);
 
-	// Set display update interval (shorter for better responsiveness)
-	weatherAnim.setRefreshInterval(100);
-
 	// Connect to WiFi for loading images
 	Serial.println("Connecting to WiFi for online animations...");
 	if (connectToWiFi()) {
 		Serial.println("WiFi Connected - attempting to load initial images");
 		
-		// Force the library to load the first image
-		weatherAnim.displayWeather(WEATHER_TYPES[currentWeatherIndex]);
+		// Force the library to show the first weather type (using runTransition instead of displayWeather)
+		weatherAnim.runTransition(WEATHER_TYPES[currentWeatherIndex], TRANSITION_NONE, 0);
 	} else {
 		Serial.println("WiFi connection failed - will use built-in animations");
 	}
@@ -829,7 +863,7 @@ void loop() {
 				weatherAnim.setOnlineAnimationSource(lastWeatherType, frameURL.c_str());
 				
 				// Force a direct display update to show the new frame
-				weatherAnim.displayWeather(lastWeatherType);
+				weatherAnim.runTransition(lastWeatherType, TRANSITION_NONE, 0);
 			}
 			
 			// Also use our manual drawing as a fallback 
