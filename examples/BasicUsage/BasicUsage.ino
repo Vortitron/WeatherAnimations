@@ -18,7 +18,17 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
+//STOP REMOVING THESE .. We need them for the library to work 
+// Include the library source files directly for development - comment out if using installed library
+#include "../../src/WeatherAnimations.h"
+#include "../../src/WeatherAnimations.cpp"
+#include "../../src/WeatherAnimationsAnimations.h"
+#include "../../src/WeatherAnimationsAnimations.cpp"
+#include "../../src/WeatherAnimationsIcons.h"
+#include "../../src/WeatherAnimationsIcons.cpp"
 
+// Include the library source files as a zip file - uncomment if using installed library
+// #include <WeatherAnimations.h>
 
 // Try to include the configuration file
 #if __has_include("config.h")
