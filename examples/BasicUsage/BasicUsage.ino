@@ -83,6 +83,17 @@ const unsigned long debounceDelay = 50;
 unsigned long lastFrameTime = 0;
 uint8_t currentFrame = 0;
 const int frameDelay = 200; // ms between frames
+const int MAX_FRAMES = 10;  // Most animations have 10 frames
+
+// Animation URLs for multiple frames (base URLs - we'll append frame numbers)
+const char* clearSkyDayBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
+const char* clearSkyNightBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_";
+const char* cloudyBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_";
+const char* rainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_";
+const char* heavyRainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_";
+const char* snowBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_";
+const char* stormBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_";
+const char* stormRainBaseURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_";
 
 // Animation state variables
 bool isTransitioning = false;
@@ -99,15 +110,15 @@ uint8_t lastWeatherType = WEATHER_CLEAR;
 	const char* haToken = "YourHomeAssistantToken";
 	const char* weatherEntity = "weather.forecast_home";
 	
-	// Animation URLs (GitHub links to quality animations)
-	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
-	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
-	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
-	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
-	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
-	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
-	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
-	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
+	// Animation URLs for OLED display - using PNG frames
+	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_000.png";
+	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_000.png";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_000.png";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_000.png";
+	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_000.png";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_000.png";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_000.png";
+	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_000.png";
 #else
 	// Use the configuration from config.h
 	#ifndef WIFI_SSID
@@ -136,49 +147,49 @@ uint8_t lastWeatherType = WEATHER_CLEAR;
 	#ifdef ANIM_CLEAR_DAY
 	const char* clearSkyDayURL = ANIM_CLEAR_DAY;
 	#else
-	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/sunny-day.gif";
+	const char* clearSkyDayURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_CLEAR_NIGHT
 	const char* clearSkyNightURL = ANIM_CLEAR_NIGHT;
 	#else
-	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/clear-night.gif";
+	const char* clearSkyNightURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/clear-night_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_CLOUDY
 	const char* cloudyURL = ANIM_CLOUDY;
 	#else
-	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/cloudy.gif";
+	const char* cloudyURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/cloudy_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_RAIN
 	const char* rainURL = ANIM_RAIN;
 	#else
-	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/rainy.gif";
+	const char* rainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/rainy_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_HEAVY_RAIN
 	const char* heavyRainURL = ANIM_HEAVY_RAIN;
 	#else
-	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/pouring.gif";
+	const char* heavyRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/pouring_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_SNOW
 	const char* snowURL = ANIM_SNOW;
 	#else
-	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/snowy.gif";
+	const char* snowURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/snowy_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_STORM
 	const char* stormURL = ANIM_STORM;
 	#else
-	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning.gif";
+	const char* stormURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning_frame_000.png";
 	#endif
 	
 	#ifdef ANIM_STORM_RAIN
 	const char* stormRainURL = ANIM_STORM_RAIN;
 	#else
-	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/tft_animated/lightning-rainy.gif";
+	const char* stormRainURL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/lightning-rainy_frame_000.png";
 	#endif
 #endif
 
@@ -445,6 +456,13 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 	display.display();
 }
 
+// Function to get frame URL for animation
+String getFrameURL(const char* baseURL, int frameNum) {
+	char buffer[150];
+	sprintf(buffer, "%s%03d.png", baseURL, frameNum);
+	return String(buffer);
+}
+
 void setup() {
 	// Initialize serial for debugging
 	Serial.begin(115200);
@@ -493,17 +511,49 @@ void setup() {
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
 	
-	// Configure online animation sources
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, true, clearSkyDayURL);   // Day version
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, false, clearSkyNightURL); // Night version
-	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, cloudyURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, rainURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, snowURL);
-	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, stormURL);
+	// Configure multiple animation frames for each weather type
+	Serial.println("Setting up animation frames...");
+	
+	// For CLEAR weather, use sunny day frames
+	for (int i = 0; i < MAX_FRAMES; i++) {
+		String frameURL = getFrameURL(clearSkyDayBaseURL, i);
+		if (i == 0) {
+			// Set the base animation for this weather type
+			weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, frameURL.c_str());
+			Serial.print("Set base frame for CLEAR: ");
+			Serial.println(frameURL);
+		} else {
+			// For other frames, we'll need to find how to add additional frames
+			// This will depend on the library implementation
+			Serial.print("Additional frame for CLEAR: ");
+			Serial.println(frameURL);
+			// weatherAnim.addAnimationFrame(WEATHER_CLEAR, frameURL.c_str(), i);
+		}
+	}
+	
+	// For CLOUDY weather
+	weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, getFrameURL(cloudyBaseURL, 0).c_str());
+	Serial.print("Set base frame for CLOUDY: ");
+	Serial.println(getFrameURL(cloudyBaseURL, 0));
+	
+	// For RAIN weather
+	weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, getFrameURL(rainBaseURL, 0).c_str());
+	Serial.print("Set base frame for RAIN: ");
+	Serial.println(getFrameURL(rainBaseURL, 0));
+	
+	// For SNOW weather
+	weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, getFrameURL(snowBaseURL, 0).c_str());
+	Serial.print("Set base frame for SNOW: ");
+	Serial.println(getFrameURL(snowBaseURL, 0));
+	
+	// For STORM weather
+	weatherAnim.setOnlineAnimationSource(WEATHER_STORM, getFrameURL(stormBaseURL, 0).c_str());
+	Serial.print("Set base frame for STORM: ");
+	Serial.println(getFrameURL(stormBaseURL, 0));
 	
 	// Use CONTINUOUS_WEATHER mode for smoother animations
 	weatherAnim.setMode(CONTINUOUS_WEATHER);
-
+	
 	// Connect to WiFi if not in manual mode
 	if (!manualMode) {
 		Serial.println("Connecting to WiFi for online animations...");
@@ -686,8 +736,31 @@ void loop() {
 			// Only update frames if not in a transition
 			if (currentMillis - lastFrameTime >= frameDelay) {
 				lastFrameTime = currentMillis;
-				currentFrame = (currentFrame + 1) % 4; // 4 frames of animation
-				drawAnimatedWeather(lastWeatherType, currentFrame);
+				
+				// Cycle through frames
+				currentFrame = (currentFrame + 1) % MAX_FRAMES;
+				
+				// Use our own drawing with drawAnimatedWeather, or load next frame URL
+				if (lastWeatherType == WEATHER_CLEAR) {
+					// Get the appropriate frame URL
+					String frameURL = getFrameURL(clearSkyDayBaseURL, currentFrame);
+					weatherAnim.setOnlineAnimationSource(WEATHER_CLEAR, frameURL.c_str());
+					Serial.print("Frame ");
+					Serial.print(currentFrame);
+					Serial.print(": ");
+					Serial.println(frameURL);
+				} else if (lastWeatherType == WEATHER_CLOUDY) {
+					weatherAnim.setOnlineAnimationSource(WEATHER_CLOUDY, getFrameURL(cloudyBaseURL, currentFrame).c_str());
+				} else if (lastWeatherType == WEATHER_RAIN) {
+					weatherAnim.setOnlineAnimationSource(WEATHER_RAIN, getFrameURL(rainBaseURL, currentFrame).c_str());
+				} else if (lastWeatherType == WEATHER_SNOW) {
+					weatherAnim.setOnlineAnimationSource(WEATHER_SNOW, getFrameURL(snowBaseURL, currentFrame).c_str());
+				} else if (lastWeatherType == WEATHER_STORM) {
+					weatherAnim.setOnlineAnimationSource(WEATHER_STORM, getFrameURL(stormBaseURL, currentFrame).c_str());
+				}
+				
+				// Call update to load the new frame
+				weatherAnim.update();
 			}
 		}
 	} 
