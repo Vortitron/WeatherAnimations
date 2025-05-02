@@ -305,6 +305,9 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 	display.setCursor(0, 12);
 	display.println(getWeatherTypeName(weatherType));
 	
+	// Variables needed for animations - declare before switch
+	int offset = 0;
+	
 	// Draw animated weather icon based on frame
 	switch (weatherType) {
 		case WEATHER_CLEAR:
@@ -334,7 +337,7 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 			break;
 		case WEATHER_CLOUDY:
 			// Animated cloud (moves slightly)
-			int offset = (frame % 2 == 0) ? 0 : 2;
+			offset = (frame % 2 == 0) ? 0 : 2;
 			display.fillRoundRect(86 + offset, 34, 36, 18, 8, SSD1306_WHITE);
 			display.fillRoundRect(78 + offset, 24, 28, 20, 8, SSD1306_WHITE);
 			break;
