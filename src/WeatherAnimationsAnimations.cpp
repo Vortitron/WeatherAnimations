@@ -55,54 +55,52 @@ typedef struct {
     int height;
 } PNGContext;
 
+// Global context that will be populated in pngToBitmap
+PNGContext pngContext;
+
 // Callback function for PNG decoder
 void pngDraw(PNGDRAW *pDraw) {
-    // Retrieve the user data pointer that contains our context
-    PNGContext *ctx = (PNGContext*)pDraw->pUser;
-    
     // Buffer for a single line of pixels
-    uint8_t *line = (uint8_t*)malloc(pDraw->iWidth * 4); // RGBA buffer
+    uint16_t *line = (uint16_t*)malloc(pDraw->iWidth * 2); // RGB565 buffer
     
     if (!line) {
         Serial.println("Failed to allocate memory for PNG line");
         return;
     }
     
-    // Get the decoded line from PNG decoder
-    png.getLineAsRGBA(pDraw, line);
+    // Get the decoded line from PNG decoder in RGB565 format
+    png.getLineAsRGB565(pDraw, line, PNG_RGB565_LITTLE_ENDIAN);
     
-    // Convert RGBA to monochrome bitmap for OLED
+    // Convert RGB565 to monochrome bitmap for OLED
     // Each byte in the bitmap contains 8 pixels
     // For OLED, 1 = white/on, 0 = black/off
     
     // Calculate the starting byte position in our bitmap
-    int startByte = pDraw->y * ((ctx->width + 7) / 8);
+    int startByte = pDraw->y * ((pngContext.width + 7) / 8);
     
     // Process each pixel in the line
     for (int x = 0; x < pDraw->iWidth; x++) {
-        // Get rgba values
-        uint8_t r = line[x * 4];
-        uint8_t g = line[x * 4 + 1];
-        uint8_t b = line[x * 4 + 2];
-        uint8_t a = line[x * 4 + 3];
+        // Get rgb565 value
+        uint16_t rgb565 = line[x];
+        
+        // Extract R, G, B components
+        uint8_t r = (rgb565 >> 8) & 0xF8;
+        uint8_t g = (rgb565 >> 3) & 0xFC;
+        uint8_t b = (rgb565 << 3) & 0xF8;
         
         // Calculate luminance (brightness)
         // Using standard RGB to luminance formula: Y = 0.299R + 0.587G + 0.114B
         uint8_t luminance = (299 * r + 587 * g + 114 * b) / 1000;
         
-        // Apply alpha blending (simplified - assume black background)
-        luminance = (luminance * a) / 255;
-        
         // For OLED, we need to set the bit if pixel is bright enough (threshold)
-        // and has enough opacity
-        if (luminance > 128 && a > 128) {
+        if (luminance > 128) {
             // Set the corresponding bit in the bitmap
             int bytePos = startByte + (x / 8);
             int bitPos = 7 - (x % 8); // MSB first
             
             // Make sure we're within bounds
-            if (bytePos < ctx->bitmapSize) {
-                ctx->bitmap[bytePos] |= (1 << bitPos);
+            if (bytePos < pngContext.bitmapSize) {
+                pngContext.bitmap[bytePos] |= (1 << bitPos);
             }
         }
     }
@@ -121,8 +119,12 @@ bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitma
     // Clear the bitmap buffer first
     memset(bitmap, 0, bitmapSize);
     
-    // Initialize the PNG decoder
-    int rc = png.openRAM(pngData, pngSize);
+    // Setup the global context
+    pngContext.bitmap = bitmap;
+    pngContext.bitmapSize = bitmapSize;
+    
+    // Initialize the PNG decoder - API requires callback function
+    int rc = png.openRAM(pngData, pngSize, pngDraw);
     if (rc != PNG_SUCCESS) {
         Serial.print("PNG decoder init failed: ");
         Serial.println(rc);
@@ -132,6 +134,10 @@ bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitma
     // Get PNG image information
     int width = png.getWidth();
     int height = png.getHeight();
+    
+    // Save to context
+    pngContext.width = width;
+    pngContext.height = height;
     
     Serial.print("PNG image size: ");
     Serial.print(width);
@@ -146,15 +152,8 @@ bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitma
         return false;
     }
     
-    // Create context for the decoder
-    PNGContext ctx;
-    ctx.bitmap = bitmap;
-    ctx.bitmapSize = bitmapSize;
-    ctx.width = width;
-    ctx.height = height;
-    
-    // Decode the PNG image
-    rc = png.decode(&pngDraw, &ctx);
+    // Decode the PNG image - pass user data as NULL since we're using global context
+    rc = png.decode(NULL, 0);
     
     // Close the PNG decoder
     png.close();
