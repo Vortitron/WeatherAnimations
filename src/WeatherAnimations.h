@@ -29,7 +29,7 @@
 #include <HTTPClient.h>
 #include <time.h>
 
-// Only include TFT_eSPI for ESP32 platforms
+// Only include TFT_eSPI for ESP32/ESP8266 platforms
 #if defined(ESP32) || defined(ESP8266)
 #include <TFT_eSPI.h>
 #endif
@@ -92,6 +92,9 @@ public:
     // Set custom weather entity ID for Home Assistant
     void setWeatherEntity(const char* entityID);
     
+    // Set temperature sensor entities
+    void setTemperatureEntities(const char* indoorTempEntity, const char* outdoorTempEntity);
+    
     // Set online animation source URL for a weather condition (for TFT or detailed animations)
     void setOnlineAnimationSource(uint8_t weatherCondition, const char* url);
     
@@ -120,6 +123,17 @@ private:
     
     // Custom weather entity ID
     const char* _weatherEntityID;
+    
+    // Temperature sensor entities
+    const char* _indoorTempEntity;
+    const char* _outdoorTempEntity;
+    
+    // Temperature readings
+    float _indoorTemp;
+    float _outdoorTemp;
+    float _minForecastTemp;
+    float _maxForecastTemp;
+    bool _hasTemperatureData;
     
     // Cooldown for weather data fetching
     unsigned long _lastFetchTime;
@@ -161,6 +175,8 @@ private:
     // Internal methods
     bool connectToWiFi();
     bool fetchWeatherData();
+    bool fetchTemperatureData();
+    float extractTemperatureFromHA(const String& payload);
     void displayAnimation();
     void initDisplay();
     bool fetchOnlineAnimation(uint8_t weatherCondition);

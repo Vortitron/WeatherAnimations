@@ -8,6 +8,8 @@ A library for displaying animated weather icons on a SH1106 OLED display connect
 - Connect to Home Assistant to fetch real-time weather data
 - Multiple transition types for smooth weather changes
 - Support for both static and animated icons
+- Display current indoor and outdoor temperatures from Home Assistant sensors
+- Show forecast minimum and maximum temperatures
 - Simple button interface for demonstration
 - Idle timeout functionality to display weather after inactivity
 - Wake from weather display with any button press
@@ -51,6 +53,20 @@ The library intelligently manages resources by:
 
 This approach ensures optimal performance across different display types while providing the best visual experience for each.
 
+### Temperature Display
+
+The library now supports fetching and displaying temperature data from Home Assistant alongside the weather animation:
+
+- Indoor temperature from a configurable sensor entity (default: `sensor.t_h_sensor_temperature`)
+- Outdoor temperature from a configurable sensor entity (default: `sensor.sam_outside_temperature`)
+- Forecast minimum and maximum temperatures (extracted from the weather entity)
+
+Temperature information is displayed in a compact format at the bottom of the screen during animations, showing:
+- Current indoor and outdoor temperatures
+- Min/max forecast temperatures
+
+This provides a complete weather overview at a glance without requiring user interaction.
+
 ## Installation
 
 ### Libraries Installation
@@ -75,6 +91,7 @@ This approach ensures optimal performance across different display types while p
    - Home Assistant IP address
    - Home Assistant long-lived access token
    - Weather entity ID to use
+   - Indoor and outdoor temperature sensor entity IDs (optional)
 
 ## Usage
 
@@ -119,6 +136,7 @@ WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
 weatherAnim.begin(OLED_SH1106, OLED_ADDR, true);
 weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
 weatherAnim.setWeatherEntity("weather.forecast_home");
+weatherAnim.setTemperatureEntities("sensor.t_h_sensor_temperature", "sensor.sam_outside_temperature");
 
 // In loop()
 // Check for idle timeout
@@ -154,6 +172,9 @@ weatherAnim.begin(OLED_SH1106, oledAddress, true);
 
 // Set weather entity
 weatherAnim.setWeatherEntity("weather.forecast_home");
+
+// Set temperature entities (optional - will use defaults if not set)
+weatherAnim.setTemperatureEntities("sensor.indoor_temperature", "sensor.outdoor_temperature");
 
 // Set mode
 weatherAnim.setMode(CONTINUOUS_WEATHER);

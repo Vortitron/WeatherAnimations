@@ -41,6 +41,8 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
     : _ssid(ssid), _password(password), _haIP(haIP), _haToken(haToken),
       _displayType(OLED_SSD1306), _i2cAddr(0x3C), _mode(CONTINUOUS_WEATHER),
       _manageWiFi(true), _currentWeather(WEATHER_CLEAR), _weatherEntityID("weather.forecast"),
+      _indoorTempEntity("sensor.t_h_sensor_temperature"), _outdoorTempEntity("sensor.sam_outside_temperature"),
+      _indoorTemp(0), _outdoorTemp(0), _minForecastTemp(0), _maxForecastTemp(0), _hasTemperatureData(false),
       _lastFetchTime(0), _fetchCooldown(300000), _isTransitioning(false),
       _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_ONLINE)
 {
@@ -124,11 +126,14 @@ void WeatherAnimations::update() {
         unsigned long currentTime = millis();
         if (currentTime - _lastFetchTime >= _fetchCooldown) {
             WA_SERIAL_PRINTLN("Attempting to fetch weather data...");
-            if (fetchWeatherData()) {
+            bool weatherSuccess = fetchWeatherData();
+            bool tempSuccess = fetchTemperatureData();
+            
+            if (weatherSuccess || tempSuccess) {
                 _lastFetchTime = currentTime;
-                WA_SERIAL_PRINTLN("Weather data fetched successfully.");
+                WA_SERIAL_PRINTLN("Weather and/or temperature data fetched successfully.");
             } else {
-                WA_SERIAL_PRINTLN("Failed to fetch weather data.");
+                WA_SERIAL_PRINTLN("Failed to fetch weather and temperature data.");
             }
         } else {
             WA_SERIAL_PRINTLN("Waiting for cooldown period to fetch new data.");
@@ -212,6 +217,33 @@ bool WeatherAnimations::fetchWeatherData() {
         // Parse JSON (extended parsing)
         String condition = "";
         bool isDaytime = true;
+        
+        // Extract min/max forecast temperatures
+        int forecastTempMinIdx = payload.indexOf("\"forecast_temp_min\":");
+        if (forecastTempMinIdx > 0) {
+            forecastTempMinIdx += 19; // Length of the search string
+            int endIdx = payload.indexOf(",", forecastTempMinIdx);
+            if (endIdx < 0) endIdx = payload.indexOf("}", forecastTempMinIdx);
+            if (endIdx > forecastTempMinIdx) {
+                String minTempStr = payload.substring(forecastTempMinIdx, endIdx);
+                _minForecastTemp = minTempStr.toFloat();
+                WA_SERIAL_PRINT("Min forecast temp: ");
+                WA_SERIAL_PRINTLN(_minForecastTemp);
+            }
+        }
+        
+        int forecastTempMaxIdx = payload.indexOf("\"forecast_temp_max\":");
+        if (forecastTempMaxIdx > 0) {
+            forecastTempMaxIdx += 19; // Length of the search string
+            int endIdx = payload.indexOf(",", forecastTempMaxIdx);
+            if (endIdx < 0) endIdx = payload.indexOf("}", forecastTempMaxIdx);
+            if (endIdx > forecastTempMaxIdx) {
+                String maxTempStr = payload.substring(forecastTempMaxIdx, endIdx);
+                _maxForecastTemp = maxTempStr.toFloat();
+                WA_SERIAL_PRINT("Max forecast temp: ");
+                WA_SERIAL_PRINTLN(_maxForecastTemp);
+            }
+        }
         
         // Extract condition from JSON (simplistic parsing)
         int stateStart = payload.indexOf("\"state\":\"") + 9;
@@ -319,6 +351,93 @@ bool WeatherAnimations::fetchWeatherData() {
     return false;
 }
 
+bool WeatherAnimations::fetchTemperatureData() {
+    if (WiFi.status() != WL_CONNECTED) {
+        if (_manageWiFi) {
+            connectToWiFi();
+        }
+        if (WiFi.status() != WL_CONNECTED) {
+            WA_SERIAL_PRINTLN("No Wi-Fi connection available.");
+            return false;
+        }
+    }
+    
+    // Fetch indoor temperature
+    bool indoorSuccess = false;
+    if (_indoorTempEntity != nullptr) {
+        HTTPClient httpIndoor;
+        String urlIndoor = String("http://") + _haIP + ":8123/api/states/" + _indoorTempEntity;
+        httpIndoor.begin(urlIndoor);
+        httpIndoor.addHeader("Authorization", String("Bearer ") + _haToken);
+        int httpCodeIndoor = httpIndoor.GET();
+        
+        if (httpCodeIndoor == 200) {
+            String payload = httpIndoor.getString();
+            WA_SERIAL_PRINTLN("Indoor Temperature Response:");
+            WA_SERIAL_PRINTLN(payload);
+            
+            _indoorTemp = extractTemperatureFromHA(payload);
+            if (_indoorTemp != -999.0f) {
+                indoorSuccess = true;
+                WA_SERIAL_PRINT("Indoor temperature: ");
+                WA_SERIAL_PRINTLN(_indoorTemp);
+            }
+        } else {
+            WA_SERIAL_PRINT("Failed to fetch indoor temperature, HTTP code: ");
+            WA_SERIAL_PRINTLN(httpCodeIndoor);
+        }
+        
+        httpIndoor.end();
+    }
+    
+    // Fetch outdoor temperature
+    bool outdoorSuccess = false;
+    if (_outdoorTempEntity != nullptr) {
+        HTTPClient httpOutdoor;
+        String urlOutdoor = String("http://") + _haIP + ":8123/api/states/" + _outdoorTempEntity;
+        httpOutdoor.begin(urlOutdoor);
+        httpOutdoor.addHeader("Authorization", String("Bearer ") + _haToken);
+        int httpCodeOutdoor = httpOutdoor.GET();
+        
+        if (httpCodeOutdoor == 200) {
+            String payload = httpOutdoor.getString();
+            WA_SERIAL_PRINTLN("Outdoor Temperature Response:");
+            WA_SERIAL_PRINTLN(payload);
+            
+            _outdoorTemp = extractTemperatureFromHA(payload);
+            if (_outdoorTemp != -999.0f) {
+                outdoorSuccess = true;
+                WA_SERIAL_PRINT("Outdoor temperature: ");
+                WA_SERIAL_PRINTLN(_outdoorTemp);
+            }
+        } else {
+            WA_SERIAL_PRINT("Failed to fetch outdoor temperature, HTTP code: ");
+            WA_SERIAL_PRINTLN(httpCodeOutdoor);
+        }
+        
+        httpOutdoor.end();
+    }
+    
+    // Update temperature data flag
+    _hasTemperatureData = indoorSuccess || outdoorSuccess;
+    
+    return _hasTemperatureData;
+}
+
+float WeatherAnimations::extractTemperatureFromHA(const String& payload) {
+    // Extract state value from Home Assistant response
+    int stateStart = payload.indexOf("\"state\":\"") + 9;
+    if (stateStart > 9) {
+        int stateEnd = payload.indexOf("\",", stateStart);
+        if (stateEnd > stateStart) {
+            String tempStr = payload.substring(stateStart, stateEnd);
+            return tempStr.toFloat();
+        }
+    }
+    
+    return -999.0f; // Error value
+}
+
 void WeatherAnimations::displayAnimation() {
     WA_SERIAL_PRINTLN("Entering displayAnimation method.");
     // If currently in transition mode, handle that instead of normal display
@@ -361,6 +480,11 @@ void WeatherAnimations::displayAnimation() {
             if (frameData != nullptr) {
                 // Draw the bitmap frame - convert XBM bitmap to SSD1306 format
                 for (int y = 0; y < SCREEN_HEIGHT; y++) {
+                    // Skip the last 8 rows if we have temperature data to display
+                    if (_hasTemperatureData && y >= SCREEN_HEIGHT - 10) {
+                        continue;
+                    }
+                    
                     for (int x = 0; x < SCREEN_WIDTH; x += 8) {
                         uint8_t byte = frameData[y * (SCREEN_WIDTH / 8) + (x / 8)];
                         for (int bit = 0; bit < 8; bit++) {
@@ -371,6 +495,28 @@ void WeatherAnimations::displayAnimation() {
                     }
                 }
                 WA_SERIAL_PRINTLN("Drawing frame " + String(frameIndex) + " on SSD1306 display.");
+                
+                // Add temperature data at the bottom if available
+                if (_hasTemperatureData) {
+                    oledDisplay->setTextSize(1);
+                    oledDisplay->setTextColor(SSD1306_WHITE);
+                    oledDisplay->setCursor(0, SCREEN_HEIGHT - 8);
+                    
+                    // Show both indoor and outdoor temperatures on one line
+                    oledDisplay->print("In:");
+                    oledDisplay->print(_indoorTemp, 1);
+                    oledDisplay->print("C Out:");
+                    oledDisplay->print(_outdoorTemp, 1);
+                    oledDisplay->print("C");
+                    
+                    // Show forecast min/max on first line
+                    oledDisplay->setCursor(0, SCREEN_HEIGHT - 16);
+                    oledDisplay->print("Min:");
+                    oledDisplay->print(_minForecastTemp, 1);
+                    oledDisplay->print("C Max:");
+                    oledDisplay->print(_maxForecastTemp, 1);
+                    oledDisplay->print("C");
+                }
             } else {
                 WA_SERIAL_PRINTLN("Frame data is null, falling back to text display.");
                 displayTextFallback(_currentWeather);
@@ -405,6 +551,29 @@ void WeatherAnimations::displayAnimation() {
                 // This is a simplified approach - in a real implementation, you would decode
                 // the GIF frames and display them properly
                 renderTFTAnimation(_currentWeather);
+                
+                // Add temperature data if available
+                if (_hasTemperatureData) {
+                    // Preserve area for temperature display
+                    tftDisplay->fillRect(0, TFT_HEIGHT - 40, TFT_WIDTH, 40, TFT_BLACK);
+                    
+                    tftDisplay->setCursor(10, TFT_HEIGHT - 35);
+                    tftDisplay->setTextColor(TFT_WHITE);
+                    tftDisplay->setTextSize(1);
+                    
+                    tftDisplay->print("Indoor: ");
+                    tftDisplay->print(_indoorTemp, 1);
+                    tftDisplay->print("C  Outdoor: ");
+                    tftDisplay->print(_outdoorTemp, 1);
+                    tftDisplay->println("C");
+                    
+                    tftDisplay->setCursor(10, TFT_HEIGHT - 20);
+                    tftDisplay->print("Forecast: Min ");
+                    tftDisplay->print(_minForecastTemp, 1);
+                    tftDisplay->print("C  Max ");
+                    tftDisplay->print(_maxForecastTemp, 1);
+                    tftDisplay->println("C");
+                }
             }
         } else {
             // Static display or fallback
@@ -872,6 +1041,29 @@ void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
         oledDisplay->setCursor(0, 0);
         oledDisplay->println(getWeatherText(weatherCondition));
         
+        // Display temperature information if available
+        if (_hasTemperatureData) {
+            oledDisplay->setCursor(0, 54);
+            
+            // Indoor temp
+            oledDisplay->print("In:");
+            oledDisplay->print(_indoorTemp, 1);
+            oledDisplay->print("C ");
+            
+            // Outdoor temp
+            oledDisplay->print("Out:");
+            oledDisplay->print(_outdoorTemp, 1);
+            oledDisplay->print("C");
+            
+            // Min/Max forecast on second line
+            oledDisplay->setCursor(0, 54);
+            oledDisplay->print("Min:");
+            oledDisplay->print(_minForecastTemp, 1);
+            oledDisplay->print("C Max:");
+            oledDisplay->print(_maxForecastTemp, 1);
+            oledDisplay->print("C");
+        }
+        
         // Draw a simple weather icon based on condition
         switch (weatherCondition) {
             case WEATHER_CLEAR:
@@ -947,6 +1139,26 @@ void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
                 break;
             default:
                 tftDisplay->println("Unknown");
+        }
+        
+        // Display temperature information if available
+        if (_hasTemperatureData) {
+            tftDisplay->setCursor(10, 220);
+            tftDisplay->setTextSize(1);
+            
+            tftDisplay->print("Indoor: ");
+            tftDisplay->print(_indoorTemp, 1);
+            tftDisplay->println("C");
+            
+            tftDisplay->print("Outdoor: ");
+            tftDisplay->print(_outdoorTemp, 1);
+            tftDisplay->println("C");
+            
+            tftDisplay->print("Forecast: ");
+            tftDisplay->print(_minForecastTemp, 1);
+            tftDisplay->print("C - ");
+            tftDisplay->print(_maxForecastTemp, 1);
+            tftDisplay->println("C");
         }
     }
 #endif
@@ -1147,5 +1359,10 @@ void WeatherAnimations::renderTFTAnimation(uint8_t weatherCondition) {
     // Do nothing - TFT not supported on this platform
 }
 #endif
+
+void WeatherAnimations::setTemperatureEntities(const char* indoorTempEntity, const char* outdoorTempEntity) {
+    _indoorTempEntity = indoorTempEntity;
+    _outdoorTempEntity = outdoorTempEntity;
+}
 
  
