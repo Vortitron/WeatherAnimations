@@ -9,6 +9,9 @@
 	#include <HTTPClient.h>
 #endif
 
+// Include PNG decoder library
+#include <PNGdec.h>
+
 // Default URLs for fetching weather icons based on our JSON file
 // Using our own GitHub repository as source
 const char* CLEAR_SKY_URL = "https://raw.githubusercontent.com/vortitron/weather-icons/main/production/oled_animated/sunny-day_frame_";
@@ -41,34 +44,128 @@ uint8_t stormFrame1[1024] = {0};
 uint8_t stormFrame2[1024] = {0};
 const uint8_t* stormFrames[2] = {stormFrame1, stormFrame2};
 
+// PNG decoder instance
+PNG png;
+
+// Structure to hold PNG decoding context
+typedef struct {
+    uint8_t* bitmap;
+    size_t bitmapSize;
+    int width;
+    int height;
+} PNGContext;
+
+// Callback function for PNG decoder
+void pngDraw(PNGDRAW *pDraw) {
+    // Retrieve the user data pointer that contains our context
+    PNGContext *ctx = (PNGContext*)pDraw->pUser;
+    
+    // Buffer for a single line of pixels
+    uint8_t *line = (uint8_t*)malloc(pDraw->iWidth * 4); // RGBA buffer
+    
+    if (!line) {
+        Serial.println("Failed to allocate memory for PNG line");
+        return;
+    }
+    
+    // Get the decoded line from PNG decoder
+    png.getLineAsRGBA(pDraw, line);
+    
+    // Convert RGBA to monochrome bitmap for OLED
+    // Each byte in the bitmap contains 8 pixels
+    // For OLED, 1 = white/on, 0 = black/off
+    
+    // Calculate the starting byte position in our bitmap
+    int startByte = pDraw->y * ((ctx->width + 7) / 8);
+    
+    // Process each pixel in the line
+    for (int x = 0; x < pDraw->iWidth; x++) {
+        // Get rgba values
+        uint8_t r = line[x * 4];
+        uint8_t g = line[x * 4 + 1];
+        uint8_t b = line[x * 4 + 2];
+        uint8_t a = line[x * 4 + 3];
+        
+        // Calculate luminance (brightness)
+        // Using standard RGB to luminance formula: Y = 0.299R + 0.587G + 0.114B
+        uint8_t luminance = (299 * r + 587 * g + 114 * b) / 1000;
+        
+        // Apply alpha blending (simplified - assume black background)
+        luminance = (luminance * a) / 255;
+        
+        // For OLED, we need to set the bit if pixel is bright enough (threshold)
+        // and has enough opacity
+        if (luminance > 128 && a > 128) {
+            // Set the corresponding bit in the bitmap
+            int bytePos = startByte + (x / 8);
+            int bitPos = 7 - (x % 8); // MSB first
+            
+            // Make sure we're within bounds
+            if (bytePos < ctx->bitmapSize) {
+                ctx->bitmap[bytePos] |= (1 << bitPos);
+            }
+        }
+    }
+    
+    free(line);
+}
+
 // Function to convert PNG image data to bitmap
 bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitmapSize) {
-	// Simplified implementation - in a real system you would use a proper PNG decoder
-	// This is a placeholder to demonstrate the concept
-	
-	// Basic error checking
-	if (pngData == NULL || bitmap == NULL || pngSize < 100 || bitmapSize != 1024) {
-		return false;
-	}
-	
-	// Look for the IDAT chunk which contains the actual image data
-	// Simplified approach - just extract some patterns
-	for (size_t i = 0; i < pngSize - 8; i++) {
-		// We need to find a repeating pattern in the PNG and extract a usable bitmap
-		// This is a very simplified approach and won't work properly for real PNGs
-		// In a real implementation, use a proper PNG decoder library
-		
-		// For demonstration purposes, just extract some patterns from different parts of the PNG
-		if (i < bitmapSize) {
-			// Use the value from the PNG data (with some processing to make it visible)
-			bitmap[i] = (pngData[i] & 0x01) ? 0xFF : 0x00;
-		}
-	}
-	
-	// In a real implementation, this would be replaced with a proper PNG decoder
-	// that handles decompression, color conversion, etc.
-	
-	return true;
+    // Basic error checking
+    if (pngData == NULL || bitmap == NULL || pngSize < 8) { // PNG header is 8 bytes
+        Serial.println("Invalid PNG data or bitmap buffer");
+        return false;
+    }
+    
+    // Clear the bitmap buffer first
+    memset(bitmap, 0, bitmapSize);
+    
+    // Initialize the PNG decoder
+    int rc = png.openRAM(pngData, pngSize);
+    if (rc != PNG_SUCCESS) {
+        Serial.print("PNG decoder init failed: ");
+        Serial.println(rc);
+        return false;
+    }
+    
+    // Get PNG image information
+    int width = png.getWidth();
+    int height = png.getHeight();
+    
+    Serial.print("PNG image size: ");
+    Serial.print(width);
+    Serial.print("x");
+    Serial.println(height);
+    
+    // Check if the image will fit in our bitmap
+    // For monochrome, we need width*height/8 bytes (8 pixels per byte)
+    if (bitmapSize < ((width + 7) / 8) * height) {
+        Serial.println("Bitmap buffer too small for this PNG");
+        png.close();
+        return false;
+    }
+    
+    // Create context for the decoder
+    PNGContext ctx;
+    ctx.bitmap = bitmap;
+    ctx.bitmapSize = bitmapSize;
+    ctx.width = width;
+    ctx.height = height;
+    
+    // Decode the PNG image
+    rc = png.decode(&pngDraw, &ctx);
+    
+    // Close the PNG decoder
+    png.close();
+    
+    if (rc != PNG_SUCCESS) {
+        Serial.print("PNG decode failed: ");
+        Serial.println(rc);
+        return false;
+    }
+    
+    return true;
 }
 
 // Function to fetch animation frames from a base URL pattern (e.g., "base_url_frame_")

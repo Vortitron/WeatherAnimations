@@ -26,7 +26,20 @@ This library requires the following Arduino libraries:
 - [Adafruit SH110X Library](https://github.com/adafruit/Adafruit_SH110x) or [Adafruit SSD1306 Library](https://github.com/adafruit/Adafruit_SSD1306)
 - [U8g2lib](https://github.com/olikraus/u8g2) (if using the original WeatherAnimations functions)
 - [ArduinoJson](https://arduinojson.org/) (for Home Assistant API integration)
+- [PNGdec](https://github.com/bitbank2/PNGdec) (for decoding PNG images from online sources)
 - Arduino ESP32 core
+
+### PNG Decoding
+
+The library now uses the PNGdec library to properly decode PNG images from online sources. This provides several benefits:
+
+- Proper decoding of all standard PNG formats
+- Support for transparency
+- Conversion of colour images to appropriate monochrome format for OLED displays
+- Better image quality than the previous placeholder implementation
+- Improved error handling with detailed diagnostic messages
+
+The PNG decoder converts downloaded images to the appropriate format for display on monochrome OLED screens, using a luminance calculation and threshold to determine whether each pixel should be on or off.
 
 ## Installation
 
@@ -42,6 +55,7 @@ This library requires the following Arduino libraries:
      - "Adafruit GFX Library"
      - "Adafruit SSD1306" (recommended for SH1106 displays on ESP32)
      - "ArduinoJson"
+     - "PNGdec" (for proper PNG image decoding)
 
 ### Configuration
 
@@ -212,6 +226,16 @@ If you're having trouble with the SH1106 display:
 - Check the I2C connections (SDA and SCL)
 - Try a lower I2C speed if you experience issues
 - Try using the Adafruit SSD1306 library instead of the SH110X library
+
+### PNG Decoder Issues
+
+If you're experiencing problems with PNG images:
+- Ensure the PNGdec library is installed correctly
+- Verify PNG files are valid and not corrupted (test in an image viewer first)
+- Check that the PNG dimensions are appropriate for your display (ideally 128x64 for most OLED displays)
+- The PNG decoder requires at least 48KB of RAM, so memory issues may occur on devices with limited RAM
+- Enable Serial output to see detailed error messages from the PNG decoder
+- For persistent issues, try using the embedded fallback animations instead
 
 ### Home Assistant Connection
 
