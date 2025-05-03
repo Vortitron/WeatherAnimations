@@ -14,19 +14,6 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-// Include the WeatherAnimations library
-// For development, include the source files directly
-#include "../../src/WeatherAnimations.h"
-#include "../../src/WeatherAnimations.cpp"
-#include "../../src/WeatherAnimationsAnimations.h"
-#include "../../src/WeatherAnimationsAnimations.cpp"
-#include "../../src/WeatherAnimationsIcons.h"
-#include "../../src/WeatherAnimationsIcons.cpp"
-#include "../../src/WeatherAnimationsTFT.cpp"
-
-// For regular use, uncomment this instead:
-// #include <WeatherAnimations.h>
-
 // Display settings
 #define OLED_ADDR 0x3C
 #define SCREEN_WIDTH 128
@@ -34,6 +21,8 @@
 
 // Define display type - for this example we're only using OLED, not TFT
 #define USE_OLED_ONLY
+// If you need TFT support, comment out USE_OLED_ONLY and uncomment the following line:
+// #define USE_TFT_DISPLAY
 
 // Button pin for waking from weather display
 #define WAKE_BUTTON 27
@@ -52,6 +41,23 @@ WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
 unsigned long lastUserActivityTime = 0;
 const unsigned long idleTimeoutDuration = 60000; // 60 seconds idle before showing weather
 bool isDisplayingIdle = false;
+
+// Include the WeatherAnimations library
+// For development, include the source files directly
+#include "../../src/WeatherAnimations.h"
+#include "../../src/WeatherAnimations.cpp"
+#include "../../src/WeatherAnimationsAnimations.h"
+#include "../../src/WeatherAnimationsAnimations.cpp"
+#include "../../src/WeatherAnimationsIcons.h"
+#include "../../src/WeatherAnimationsIcons.cpp"
+
+// Include TFT implementation only if needed
+#if !defined(USE_OLED_ONLY) && defined(USE_TFT_DISPLAY)
+#include "../../src/WeatherAnimationsTFT.cpp"
+#endif
+
+// For regular use, uncomment this instead:
+// #include <WeatherAnimations.h>
 
 // Function to show idle weather animation
 void showWeatherDisplay() {
