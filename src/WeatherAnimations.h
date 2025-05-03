@@ -28,7 +28,11 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <time.h>
+
+// Only include TFT_eSPI for ESP32 platforms
+#if defined(ESP32) || defined(ESP8266)
 #include <TFT_eSPI.h>
+#endif
 
 // Define display types
 #define OLED_SSD1306 1

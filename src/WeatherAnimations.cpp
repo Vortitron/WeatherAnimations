@@ -9,7 +9,11 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <time.h>
+
+// Only include TFT_eSPI for ESP32/ESP8266 platforms
+#if defined(ESP32) || defined(ESP8266)
 #include <TFT_eSPI.h>
+#endif
 
 #include "WeatherAnimationsAnimations.h"
 #include <Adafruit_GFX.h>
@@ -25,7 +29,11 @@
 
 // Global display objects (will be initialized based on display type)
 Adafruit_SSD1306* oledDisplay = nullptr;
+
+// Only define tftDisplay for ESP32/ESP8266 platforms
+#if defined(ESP32) || defined(ESP8266)
 TFT_eSPI* tftDisplay = nullptr;
+#endif
 
 using namespace WeatherAnimationsLib;
 
@@ -373,7 +381,9 @@ void WeatherAnimations::displayAnimation() {
         
         oledDisplay->display();
         WA_SERIAL_PRINTLN("Updating OLED display.");
-    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+    } 
+#if defined(ESP32) || defined(ESP8266)
+    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
         // For TFT display, we can handle animated GIFs if in online animation mode
         if (_animationMode == ANIMATION_ONLINE && 
             _onlineAnimationCache[_currentWeather].isLoaded &&
@@ -401,7 +411,9 @@ void WeatherAnimations::displayAnimation() {
             tftDisplay->fillScreen(TFT_BLACK);
             displayTextFallback(_currentWeather);
         }
-    } else {
+    } 
+#endif
+    else {
         WA_SERIAL_PRINTLN("No display initialized or unsupported display type.");
     }
     
@@ -582,13 +594,16 @@ void WeatherAnimations::initDisplay() {
             delete oledDisplay;
             oledDisplay = nullptr;
         }
-    } else if (_displayType == TFT_DISPLAY) {
+    } 
+#if defined(ESP32) || defined(ESP8266)
+    else if (_displayType == TFT_DISPLAY) {
         tftDisplay = new TFT_eSPI();
         tftDisplay->init();
         tftDisplay->fillScreen(TFT_BLACK);
         tftDisplay->setRotation(0);
         WA_SERIAL_PRINTLN("TFT display initialized.");
     }
+#endif
 }
 
 bool WeatherAnimations::setAnimationFromHACondition(const char* condition, bool isDaytime) {
@@ -756,7 +771,9 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
         }
         
         oledDisplay->display();
-    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+    } 
+#if defined(ESP32) || defined(ESP8266)
+    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
         // For TFT display, we'll implement a simple transition
         // This is a basic implementation - you can enhance it with more complex animations
         
@@ -840,7 +857,9 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
                     break;
             }
         }
-    } else {
+    } 
+#endif
+    else {
         WA_SERIAL_PRINTLN("No display initialized or unsupported display type.");
     }
 }
@@ -887,7 +906,9 @@ void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
         }
         
         oledDisplay->display();
-    } else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
+    } 
+#if defined(ESP32) || defined(ESP8266)
+    else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
         tftDisplay->fillScreen(TFT_BLACK);
         tftDisplay->setCursor(10, 10);
         tftDisplay->setTextColor(TFT_WHITE);
@@ -928,6 +949,7 @@ void WeatherAnimations::displayTextFallback(uint8_t weatherCondition) {
                 tftDisplay->println("Unknown");
         }
     }
+#endif
 }
 
 const char* WeatherAnimations::getWeatherText(uint8_t weatherCondition) {
@@ -968,5 +990,162 @@ WeatherAnimations::~WeatherAnimations() {
     // Clean up icon data
     clearWeatherIcons();
 }
+
+#if defined(ESP32) || defined(ESP8266)
+// Only include renderTFTAnimation for ESP32/ESP8266 platforms
+void WeatherAnimations::renderTFTAnimation(uint8_t weatherCondition) {
+    if (tftDisplay == nullptr) {
+        return;
+    }
+    
+    // Check if we have valid frame data
+    if (_onlineAnimationCache[weatherCondition].frameCount > 0 &&
+        _onlineAnimationCache[weatherCondition].frameData[_currentFrame] != nullptr) {
+        
+        // In a real implementation, this would decode and display the actual frame data
+        // This is a simplified implementation that draws placeholder graphics
+        
+        tftDisplay->fillScreen(TFT_BLACK);
+        
+        // Draw the frame number for debugging
+        tftDisplay->setCursor(10, 10);
+        tftDisplay->setTextColor(TFT_WHITE);
+        tftDisplay->setTextSize(1);
+        tftDisplay->print("Frame: ");
+        tftDisplay->println(_currentFrame + 1);
+        
+        // Center coordinates for the animation
+        int16_t centerX = TFT_WIDTH / 2;
+        int16_t centerY = TFT_HEIGHT / 2;
+        
+        // Create animated effects based on weather condition and current frame
+        switch (weatherCondition) {
+            case WEATHER_CLEAR: {
+                // Sun with rays that get longer/shorter based on frame
+                int16_t rayLength = 15 + (_currentFrame * 5);
+                tftDisplay->fillCircle(centerX, centerY, 30, TFT_YELLOW);
+                
+                // Draw 8 rays around the sun
+                for (int i = 0; i < 8; i++) {
+                    float angle = i * PI / 4;
+                    int16_t x1 = centerX + cos(angle) * 30;
+                    int16_t y1 = centerY + sin(angle) * 30;
+                    int16_t x2 = centerX + cos(angle) * (30 + rayLength);
+                    int16_t y2 = centerY + sin(angle) * (30 + rayLength);
+                    tftDisplay->drawLine(x1, y1, x2, y2, TFT_YELLOW);
+                }
+                break;
+            }
+            
+            case WEATHER_CLOUDY: {
+                // Animate clouds moving horizontally
+                int16_t offset = _currentFrame * 10;
+                if (offset > TFT_WIDTH / 2) offset = 0;
+                
+                // Draw cloud shapes with offset
+                tftDisplay->fillCircle(centerX - 20 + offset, centerY, 20, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX + offset, centerY - 10, 25, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX + 20 + offset, centerY, 20, TFT_LIGHTGREY);
+                tftDisplay->fillRect(centerX - 20 + offset, centerY, 40, 20, TFT_LIGHTGREY);
+                
+                // Second smaller cloud
+                tftDisplay->fillCircle(centerX - 60 - offset, centerY + 40, 15, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX - 40 - offset, centerY + 35, 18, TFT_LIGHTGREY);
+                tftDisplay->fillRect(centerX - 60 - offset, centerY + 35, 30, 15, TFT_LIGHTGREY);
+                break;
+            }
+            
+            case WEATHER_RAIN: {
+                // Cloud with animated rain drops
+                // Draw the cloud
+                tftDisplay->fillCircle(centerX - 20, centerY - 30, 20, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX, centerY - 40, 25, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX + 20, centerY - 30, 20, TFT_LIGHTGREY);
+                tftDisplay->fillRect(centerX - 20, centerY - 30, 40, 20, TFT_LIGHTGREY);
+                
+                // Draw raindrops at different positions based on frame
+                for (int i = 0; i < 10; i++) {
+                    int16_t x = centerX - 40 + (i * 10);
+                    int16_t yOffset = ((i + _currentFrame) % 4) * 20;
+                    int16_t y = centerY + yOffset;
+                    
+                    // Only draw if within screen bounds
+                    if (y < TFT_HEIGHT) {
+                        tftDisplay->drawLine(x, y, x + 3, y + 10, TFT_BLUE);
+                    }
+                }
+                break;
+            }
+            
+            case WEATHER_SNOW: {
+                // Cloud with animated snowflakes
+                // Draw the cloud
+                tftDisplay->fillCircle(centerX - 20, centerY - 30, 20, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX, centerY - 40, 25, TFT_LIGHTGREY);
+                tftDisplay->fillCircle(centerX + 20, centerY - 30, 20, TFT_LIGHTGREY);
+                tftDisplay->fillRect(centerX - 20, centerY - 30, 40, 20, TFT_LIGHTGREY);
+                
+                // Draw snowflakes at different positions based on frame
+                for (int i = 0; i < 10; i++) {
+                    int16_t x = centerX - 40 + (i * 10);
+                    int16_t yOffset = ((i + _currentFrame) % 4) * 20;
+                    int16_t y = centerY + yOffset;
+                    
+                    // Only draw if within screen bounds
+                    if (y < TFT_HEIGHT) {
+                        // Draw a simple snowflake pattern
+                        tftDisplay->drawLine(x, y, x + 4, y + 4, TFT_WHITE);
+                        tftDisplay->drawLine(x + 4, y, x, y + 4, TFT_WHITE);
+                        tftDisplay->drawLine(x, y + 2, x + 4, y + 2, TFT_WHITE);
+                        tftDisplay->drawLine(x + 2, y, x + 2, y + 4, TFT_WHITE);
+                    }
+                }
+                break;
+            }
+            
+            case WEATHER_STORM: {
+                // Cloud with animated lightning bolt
+                // Draw the storm cloud
+                tftDisplay->fillCircle(centerX - 20, centerY - 30, 20, TFT_DARKGREY);
+                tftDisplay->fillCircle(centerX, centerY - 40, 25, TFT_DARKGREY);
+                tftDisplay->fillCircle(centerX + 20, centerY - 30, 20, TFT_DARKGREY);
+                tftDisplay->fillRect(centerX - 20, centerY - 30, 40, 20, TFT_DARKGREY);
+                
+                // Draw lightning bolt - flash on alternate frames
+                if (_currentFrame % 2 == 0) {
+                    tftDisplay->fillTriangle(
+                        centerX, centerY,
+                        centerX - 10, centerY + 30,
+                        centerX + 5, centerY + 15,
+                        TFT_YELLOW
+                    );
+                    tftDisplay->fillTriangle(
+                        centerX + 5, centerY + 15,
+                        centerX - 5, centerY + 45,
+                        centerX + 15, centerY + 45,
+                        TFT_YELLOW
+                    );
+                }
+                break;
+            }
+            
+            default:
+                // Default animation if no specific animation is available
+                tftDisplay->setCursor(centerX - 30, centerY);
+                tftDisplay->setTextSize(2);
+                tftDisplay->println("?");
+                break;
+        }
+    } else {
+        // Fallback to text display if no animation frames are available
+        displayTextFallback(weatherCondition);
+    }
+}
+#else
+// Empty implementation for non-ESP32/ESP8266 platforms
+void WeatherAnimations::renderTFTAnimation(uint8_t weatherCondition) {
+    // Do nothing - TFT not supported on this platform
+}
+#endif
 
  
