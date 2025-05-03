@@ -1,0 +1,27 @@
+/*
+ * Configuration Example for BasicUsage
+ * 
+ * Rename this file to config.h and adjust the settings to match your environment.
+ * This file should be placed in the same directory as the .ino file.
+ */
+
+// WiFi settings
+#define WIFI_SSID "YourWiFiSSID"
+#define WIFI_PASSWORD "YourWiFiPassword"
+
+// Home Assistant settings
+#define HA_IP "192.168.1.100"  // IP address of your Home Assistant instance
+#define HA_TOKEN "your_long_lived_access_token_here" // Long-lived access token from Home Assistant
+
+// Entity IDs - adjust these to match your Home Assistant entities
+#define HA_WEATHER_ENTITY "weather.forecast_home"
+#define HA_INDOOR_TEMP_ENTITY "sensor.t_h_sensor_temperature"
+#define HA_OUTDOOR_TEMP_ENTITY "sensor.sam_outside_temperature"
+
+// OLED Display settings (default is 0x3C)
+// #define OLED_ADDRESS 0x3C
+
+// Button pin definitions
+// #define ENCODER_PUSH_PIN 27
+// #define BACK_BUTTON_PIN 14
+// #define LEFT_BUTTON_PIN 12 

@@ -19,6 +19,12 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
+// Try to include the configuration file
+#if __has_include("config.h")
+	#include "config.h"
+	#define CONFIG_EXISTS
+#endif
+
 // Include the WeatherAnimations library
 // For development, include the source files directly
 #include "../../src/WeatherAnimations.h"
@@ -44,19 +50,54 @@
 // Button pin for waking from weather display
 #define WAKE_BUTTON 27
 
-// WiFi and Home Assistant settings - replace with your own
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
-const char* haIP = "YourHomeAssistantIP";
-const char* haToken = "YourHomeAssistantToken";
-const char* weatherEntity = "weather.forecast_home";
+// WiFi and Home Assistant settings - these will be overridden by config.h if it exists
+#ifndef CONFIG_EXISTS
+	const char* ssid = "YourWiFiSSID";
+	const char* password = "YourWiFiPassword";
+	const char* haIP = "YourHomeAssistantIP";
+	const char* haToken = "YourHomeAssistantToken";
+	const char* weatherEntity = "weather.forecast_home";
+	const char* indoorTempEntity = "sensor.indoor_temperature";
+	const char* outdoorTempEntity = "sensor.outdoor_temperature";
+#else
+	// Use the configuration from config.h
+	#ifndef WIFI_SSID
+	#define WIFI_SSID "YourWiFiSSID"
+	#endif
+	#ifndef WIFI_PASSWORD
+	#define WIFI_PASSWORD "YourWiFiPassword"
+	#endif
+	#ifndef HA_IP
+	#define HA_IP "YourHomeAssistantIP" 
+	#endif
+	#ifndef HA_TOKEN
+	#define HA_TOKEN "YourHomeAssistantToken"
+	#endif
+	#ifndef HA_WEATHER_ENTITY
+	#define HA_WEATHER_ENTITY "weather.forecast_home"
+	#endif
+	#ifndef HA_INDOOR_TEMP_ENTITY
+	#define HA_INDOOR_TEMP_ENTITY "sensor.indoor_temperature"
+	#endif
+	#ifndef HA_OUTDOOR_TEMP_ENTITY
+	#define HA_OUTDOOR_TEMP_ENTITY "sensor.outdoor_temperature"
+	#endif
+	
+	const char* ssid = WIFI_SSID;
+	const char* password = WIFI_PASSWORD;
+	const char* haIP = HA_IP;
+	const char* haToken = HA_TOKEN;
+	const char* weatherEntity = HA_WEATHER_ENTITY;
+	const char* indoorTempEntity = HA_INDOOR_TEMP_ENTITY;
+	const char* outdoorTempEntity = HA_OUTDOOR_TEMP_ENTITY;
+#endif
 
 // Create WeatherAnimations instance
 WeatherAnimationsLib::WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
 
 // Idle timeout variables
 unsigned long lastUserActivityTime = 0;
-const unsigned long idleTimeoutDuration = 60000; // 60 seconds idle before showing weather
+const unsigned long idleTimeoutDuration = 20000; // 20 seconds idle before showing weather
 bool isDisplayingIdle = false;
 
 // Function forward declarations
@@ -98,6 +139,12 @@ void setup() {
 	Serial.println("Simple Weather Display Example");
 	Serial.println("===================================");
 	
+	#ifdef CONFIG_EXISTS
+	Serial.println("Using configuration from config.h");
+	#else
+	Serial.println("No config.h found. Using default values.");
+	#endif
+	
 	// Initialize button pin
 	pinMode(WAKE_BUTTON, INPUT_PULLUP);
 	
@@ -115,6 +162,9 @@ void setup() {
 	
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
+	
+	// Set temperature sensor entities for indoor and outdoor temperatures
+	weatherAnim.setTemperatureEntities(indoorTempEntity, outdoorTempEntity);
 	
 	// Show welcome message
 	weatherAnim.setAnimationMode(ANIMATION_STATIC);

@@ -85,13 +85,15 @@ This provides a complete weather overview at a glance without requiring user int
 
 ### Configuration
 
-1. Copy `examples/config_example.h` to `examples/BasicUsage/config.h`
+1. Copy `examples/config_example.h` to `examples/BasicUsage/config.h` or `examples/SimpleWeatherDisplay/config.h`
 2. Edit `config.h` with your Wi-Fi and Home Assistant credentials:
    - Wi-Fi SSID and password
    - Home Assistant IP address
    - Home Assistant long-lived access token
    - Weather entity ID to use
    - Indoor and outdoor temperature sensor entity IDs (optional)
+
+Each example now includes a `config.h.example` file that can be renamed to `config.h` and customized with your specific settings.
 
 ## Usage
 
@@ -161,6 +163,16 @@ if (isDisplayingIdle) {
   weatherAnim.update();
 }
 ```
+
+The SimpleWeatherDisplay example now supports reading configuration from a `config.h` file, which can include temperature entity definitions:
+
+```c
+// In config.h:
+#define HA_INDOOR_TEMP_ENTITY "sensor.t_h_sensor_temperature"
+#define HA_OUTDOOR_TEMP_ENTITY "sensor.sam_outside_temperature"
+```
+
+This allows you to easily customize which temperature sensors are displayed without modifying the main sketch. The example will automatically use these entities to fetch and display temperature data from Home Assistant.
 
 #### 3. Full WeatherAnimations Library Usage
 
