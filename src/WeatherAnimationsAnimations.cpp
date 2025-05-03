@@ -69,7 +69,7 @@ void pngDraw(PNGDRAW *pDraw) {
     }
     
     // Get the decoded line from PNG decoder in RGB565 format
-    png.getLineAsRGB565(pDraw, line, PNG_RGB565_LITTLE_ENDIAN);
+    png.getLineAsRGB565(pDraw, line, PNG_RGB565_LITTLE_ENDIAN, 0);
     
     // Convert RGB565 to monochrome bitmap for OLED
     // Each byte in the bitmap contains 8 pixels
