@@ -22,6 +22,7 @@
 #include "../../src/WeatherAnimationsAnimations.cpp"
 #include "../../src/WeatherAnimationsIcons.h"
 #include "../../src/WeatherAnimationsIcons.cpp"
+#include "../../src/WeatherAnimationsTFT.cpp"
 
 // For regular use, uncomment this instead:
 // #include <WeatherAnimations.h>
@@ -30,6 +31,9 @@
 #define OLED_ADDR 0x3C
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
+
+// Define display type - for this example we're only using OLED, not TFT
+#define USE_OLED_ONLY
 
 // Button pin for waking from weather display
 #define WAKE_BUTTON 27
@@ -88,7 +92,13 @@ void setup() {
 	pinMode(WAKE_BUTTON, INPUT_PULLUP);
 	
 	// Initialize the WeatherAnimations library with SSD1306 display
+	// Explicitly use OLED_SSD1306 and not TFT_DISPLAY
+	#ifdef USE_OLED_ONLY
+	Serial.println("Using OLED display (SSD1306) for this example");
 	weatherAnim.begin(OLED_SSD1306, OLED_ADDR, true);
+	#else
+	weatherAnim.begin(OLED_SSD1306, OLED_ADDR, true);
+	#endif
 	
 	// Set animation mode to embedded (not online)
 	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
