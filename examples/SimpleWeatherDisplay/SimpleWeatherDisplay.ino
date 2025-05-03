@@ -10,37 +10,14 @@
  * - Optional: Any button connected to a digital pin (default: GPIO 27)
  */
 
-#include <Wire.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
-
-// Display settings
-#define OLED_ADDR 0x3C
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-
 // Define display type - for this example we're only using OLED, not TFT
 #define USE_OLED_ONLY
 // If you need TFT support, comment out USE_OLED_ONLY and uncomment the following line:
 // #define USE_TFT_DISPLAY
 
-// Button pin for waking from weather display
-#define WAKE_BUTTON 27
-
-// WiFi and Home Assistant settings - replace with your own
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
-const char* haIP = "YourHomeAssistantIP";
-const char* haToken = "YourHomeAssistantToken";
-const char* weatherEntity = "weather.forecast_home";
-
-// Create WeatherAnimations instance
-WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
-
-// Idle timeout variables
-unsigned long lastUserActivityTime = 0;
-const unsigned long idleTimeoutDuration = 60000; // 60 seconds idle before showing weather
-bool isDisplayingIdle = false;
+#include <Wire.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 
 // Include the WeatherAnimations library
 // For development, include the source files directly
@@ -58,6 +35,33 @@ bool isDisplayingIdle = false;
 
 // For regular use, uncomment this instead:
 // #include <WeatherAnimations.h>
+
+// Display settings
+#define OLED_ADDR 0x3C
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+// Button pin for waking from weather display
+#define WAKE_BUTTON 27
+
+// WiFi and Home Assistant settings - replace with your own
+const char* ssid = "YourWiFiSSID";
+const char* password = "YourWiFiPassword";
+const char* haIP = "YourHomeAssistantIP";
+const char* haToken = "YourHomeAssistantToken";
+const char* weatherEntity = "weather.forecast_home";
+
+// Create WeatherAnimations instance
+WeatherAnimationsLib::WeatherAnimations weatherAnim(ssid, password, haIP, haToken);
+
+// Idle timeout variables
+unsigned long lastUserActivityTime = 0;
+const unsigned long idleTimeoutDuration = 60000; // 60 seconds idle before showing weather
+bool isDisplayingIdle = false;
+
+// Function forward declarations
+void showWeatherDisplay();
+void hideWeatherDisplay();
 
 // Function to show idle weather animation
 void showWeatherDisplay() {
