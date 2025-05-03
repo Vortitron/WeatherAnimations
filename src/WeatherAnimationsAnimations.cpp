@@ -238,7 +238,16 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 }
 
 // Initialize all animations from online resources
-bool initializeAnimationsFromOnline() {
+bool initializeAnimationsFromOnline(uint8_t displayType) {
+	// For OLED displays, always use the fallback animations
+	// TFT_DISPLAY is defined as 3 in WeatherAnimations.h
+	if (displayType == 1 || displayType == 2) { // OLED_SSD1306 or OLED_SH1106
+		Serial.println("Using fallback animations for OLED display");
+		generateFallbackAnimations();
+		return true;
+	}
+	
+	// For TFT displays, try to fetch online PNG images
 	bool allSuccess = true;
 	bool anySuccess = false;
 	
@@ -268,12 +277,130 @@ bool initializeAnimationsFromOnline() {
 	allSuccess &= stormSuccess;
 	anySuccess |= stormSuccess;
 	
+	// If any fetch failed, use fallback animations
 	if (!allSuccess) {
-		Serial.println("Some animations failed to load completely");
+		Serial.println("Some animations failed to load - falling back to generated animations");
+		if (!anySuccess) {
+			// If all fetches failed, regenerate all animations
+			generateFallbackAnimations();
+		} else {
+			// If some fetches succeeded, only regenerate failed animations
+			if (!clearSuccess) {
+				// Generate clear sky frames
+				for (int i = 0; i < 1024; i++) {
+					clearSkyFrame1[i] = 0;
+					clearSkyFrame2[i] = 0;
+				}
+				// Draw sun
+				for (int y = 20; y < 44; y++) {
+					for (int x = 52; x < 76; x++) {
+						int centerX = 64;
+						int centerY = 32;
+						int dx = x - centerX;
+						int dy = y - centerY;
+						float distance = sqrt(dx*dx + dy*dy);
+						
+						if (distance <= 10) {
+							int bytePos = y * 16 + x / 8;
+							int bitPos = 7 - (x % 8);
+							clearSkyFrame1[bytePos] |= (1 << bitPos);
+							clearSkyFrame2[bytePos] |= (1 << bitPos);
+						}
+					}
+				}
+				// Add rays to frame 2
+				int rays = 8;
+				float angleStep = 2 * PI / rays;
+				for (int ray = 0; ray < rays; ray++) {
+					float angle = ray * angleStep;
+					int innerX = 64 + cos(angle) * 12;
+					int innerY = 32 + sin(angle) * 12;
+					int outerX = 64 + cos(angle) * 18;
+					int outerY = 32 + sin(angle) * 18;
+					
+					for (float t = 0; t <= 1.0; t += 0.1) {
+						int x = innerX + (outerX - innerX) * t;
+						int y = innerY + (outerY - innerY) * t;
+						
+						if (x >= 0 && x < 128 && y >= 0 && y < 64) {
+							int bytePos = y * 16 + x / 8;
+							int bitPos = 7 - (x % 8);
+							clearSkyFrame2[bytePos] |= (1 << bitPos);
+						}
+					}
+				}
+			}
+			
+			if (!cloudySuccess) {
+				// Clear memory first
+				for (int i = 0; i < 1024; i++) {
+					cloudyFrame1[i] = 0;
+					cloudyFrame2[i] = 0;
+				}
+				// Generate cloudy frames
+				drawCloud(30, 25, 35, 15, cloudyFrame1);
+				drawCloud(35, 25, 30, 15, cloudyFrame2);
+				drawCloud(85, 30, 40, 15, cloudyFrame1);
+				drawCloud(80, 30, 40, 15, cloudyFrame2);
+			}
+			
+			if (!rainSuccess) {
+				// Clear memory first
+				for (int i = 0; i < 1024; i++) {
+					rainFrame1[i] = 0;
+					rainFrame2[i] = 0;
+					rainFrame3[i] = 0;
+				}
+				// Generate rain frames
+				drawCloud(64, 20, 50, 15, rainFrame1);
+				drawCloud(64, 20, 50, 15, rainFrame2);
+				drawCloud(64, 20, 50, 15, rainFrame3);
+				
+				// Add raindrops
+				for (int i = 0; i < 5; i++) {
+					drawRainDrop(40 + i * 15, 45, rainFrame1);
+					drawRainDrop(40 + i * 15, 50, rainFrame2);
+					drawRainDrop(40 + i * 15, 55, rainFrame3);
+				}
+			}
+			
+			if (!snowSuccess) {
+				// Clear memory first
+				for (int i = 0; i < 1024; i++) {
+					snowFrame1[i] = 0;
+					snowFrame2[i] = 0;
+					snowFrame3[i] = 0;
+				}
+				// Generate snow frames
+				drawCloud(64, 20, 50, 15, snowFrame1);
+				drawCloud(64, 20, 50, 15, snowFrame2);
+				drawCloud(64, 20, 50, 15, snowFrame3);
+				
+				// Add snowflakes
+				for (int i = 0; i < 5; i++) {
+					drawSnowflake(40 + i * 15, 45, snowFrame1);
+					drawSnowflake(35 + i * 15, 50, snowFrame2);
+					drawSnowflake(40 + i * 15, 55, snowFrame3);
+				}
+			}
+			
+			if (!stormSuccess) {
+				// Clear memory first
+				for (int i = 0; i < 1024; i++) {
+					stormFrame1[i] = 0;
+					stormFrame2[i] = 0;
+				}
+				// Generate storm frames
+				drawCloud(64, 20, 60, 20, stormFrame1);
+				drawCloud(64, 20, 60, 20, stormFrame2);
+				drawLightning(55, 40, stormFrame1);
+				drawLightning(75, 38, stormFrame2);
+			}
+		}
 	}
 	
 	// Return true if at least some frames were loaded successfully
-	return anySuccess;
+	return true;
 }
 
 // Fallback function to generate simple animations if online fetch fails

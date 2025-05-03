@@ -90,7 +90,7 @@ void WeatherAnimations::begin(uint8_t displayType, uint8_t i2cAddr, bool manageW
     if (_animationMode == ANIMATION_ONLINE && WiFi.status() == WL_CONNECTED) {
         WA_SERIAL_PRINTLN("Preloading weather icons...");
         // Try to get animations from online resources first
-        if (!initializeAnimationsFromOnline()) {
+        if (!initializeAnimationsFromOnline(_displayType)) {
             // If failed, generate fallback animations
             WA_SERIAL_PRINTLN("Failed to load animations from online, using fallbacks");
             generateFallbackAnimations();

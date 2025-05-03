@@ -41,6 +41,16 @@ The library now uses the PNGdec library to properly decode PNG images from onlin
 
 The PNG decoder converts downloaded images to the appropriate format for display on monochrome OLED screens, using a luminance calculation and threshold to determine whether each pixel should be on or off.
 
+#### Display-Specific Optimizations
+
+The library intelligently manages resources by:
+
+- Using simplified fallback animations for OLED displays (SSD1306 and SH1106) to conserve memory and bandwidth
+- Only downloading and processing PNG images for TFT displays where the higher quality and color capabilities can be appreciated
+- Automatically falling back to generated animations if PNG downloads fail
+
+This approach ensures optimal performance across different display types while providing the best visual experience for each.
+
 ## Installation
 
 ### Libraries Installation

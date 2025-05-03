@@ -44,7 +44,7 @@ extern const uint8_t* stormFrames[2];
 // Functions for fetching and initializing animations
 bool pngToBitmap(uint8_t* pngData, size_t pngSize, uint8_t* bitmap, size_t bitmapSize);
 bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount, size_t frameSize);
-bool initializeAnimationsFromOnline();
+bool initializeAnimationsFromOnline(uint8_t displayType);
 void generateFallbackAnimations();
 
 // Helper functions for drawing fallback animations
