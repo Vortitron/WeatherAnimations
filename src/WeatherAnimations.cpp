@@ -443,8 +443,8 @@ void WeatherAnimations::displayAnimation() {
     // If currently in transition mode, handle that instead of normal display
     if (_isTransitioning) {
         WA_SERIAL_PRINTLN("Handling transition animation.");
-        unsigned long currentTime = millis();
-        unsigned long elapsedTime = currentTime - _transitionStartTime;
+        unsigned long currentMillis = millis();
+        unsigned long elapsedTime = currentMillis - _transitionStartTime;
         
         // Calculate progress (0.0 to 1.0)
         float progress = min(1.0f, (float)elapsedTime / _transitionDuration);
@@ -473,60 +473,55 @@ void WeatherAnimations::displayAnimation() {
         
         oledDisplay->clearDisplay();
         
-        if (_animations[_currentWeather].frameCount > 0) {
-            uint8_t frameIndex = (millis() / _animations[_currentWeather].frameDelay) % _animations[_currentWeather].frameCount;
-            const uint8_t* frameData = _animations[_currentWeather].frames[frameIndex];
-            
-            if (frameData != nullptr) {
-                // Draw the bitmap frame - convert XBM bitmap to SSD1306 format
-                for (int y = 0; y < SCREEN_HEIGHT; y++) {
-                    // Skip the last 8 rows if we have temperature data to display
-                    if (_hasTemperatureData && y >= SCREEN_HEIGHT - 10) {
-                        continue;
-                    }
-                    
-                    for (int x = 0; x < SCREEN_WIDTH; x += 8) {
-                        uint8_t byte = frameData[y * (SCREEN_WIDTH / 8) + (x / 8)];
-                        for (int bit = 0; bit < 8; bit++) {
-                            if (byte & (1 << bit)) {
-                                oledDisplay->drawPixel(x + (7 - bit), y, SSD1306_WHITE);
-                            }
-                        }
-                    }
-                }
-                WA_SERIAL_PRINTLN("Drawing frame " + String(frameIndex) + " on SSD1306 display.");
-                
-                // Add temperature data at the bottom if available
-                if (_hasTemperatureData) {
-                    oledDisplay->setTextSize(1);
-                    oledDisplay->setTextColor(SSD1306_WHITE);
-                    oledDisplay->setCursor(0, SCREEN_HEIGHT - 8);
-                    
-                    // Show both indoor and outdoor temperatures on one line
-                    oledDisplay->print("In:");
-                    oledDisplay->print(_indoorTemp, 1);
-                    oledDisplay->print("C Out:");
-                    oledDisplay->print(_outdoorTemp, 1);
-                    oledDisplay->print("C");
-                    
-                    // Show forecast min/max on first line
-                    oledDisplay->setCursor(0, SCREEN_HEIGHT - 16);
-                    oledDisplay->print("Min:");
-                    oledDisplay->print(_minForecastTemp, 1);
-                    oledDisplay->print("C Max:");
-                    oledDisplay->print(_maxForecastTemp, 1);
-                    oledDisplay->print("C");
-                }
-            } else {
-                WA_SERIAL_PRINTLN("Frame data is null, falling back to text display.");
-                displayTextFallback(_currentWeather);
-            }
+        // Draw header with weather type name
+        oledDisplay->setTextSize(1);
+        oledDisplay->setTextColor(SSD1306_WHITE);
+        oledDisplay->setCursor(0, 0);
+        oledDisplay->println("Weather:");
+        oledDisplay->setTextSize(2);
+        oledDisplay->setCursor(0, 12);
+        oledDisplay->println(getWeatherText(_currentWeather));
+        
+        if (_animationMode == ANIMATION_STATIC) {
+            // Draw static weather icon using BasicUsage style
+            drawStaticWeatherIcon(_currentWeather);
         } else {
-            displayTextFallback(_currentWeather);
+            // Check if we have animation frames
+            if (_animations[_currentWeather].frameCount > 0) {
+                // Get current frame based on timing
+                uint8_t frameIndex = (millis() / _animations[_currentWeather].frameDelay) % _animations[_currentWeather].frameCount;
+                
+                // Draw animated weather icon using BasicUsage style
+                drawAnimatedWeatherIcon(_currentWeather, frameIndex);
+            } else {
+                // Fall back to static icon if no animation frames
+                drawStaticWeatherIcon(_currentWeather);
+            }
+        }
+        
+        // Add temperature data at the bottom if available
+        if (_hasTemperatureData) {
+            oledDisplay->setTextSize(1);
+            oledDisplay->setCursor(0, 45);
+            
+            // Show indoor and outdoor temps
+            oledDisplay->print("In:");
+            oledDisplay->print(_indoorTemp, 1);
+            oledDisplay->print("C  Out:");
+            oledDisplay->print(_outdoorTemp, 1);
+            oledDisplay->print("C");
+            
+            // Show forecast min/max on last line
+            oledDisplay->setCursor(0, 56);
+            oledDisplay->print("Min:");
+            oledDisplay->print(_minForecastTemp, 1);
+            oledDisplay->print("C Max:");
+            oledDisplay->print(_maxForecastTemp, 1);
+            oledDisplay->print("C");
         }
         
         oledDisplay->display();
-        WA_SERIAL_PRINTLN("Updating OLED display.");
+        WA_SERIAL_PRINTLN("Updated OLED display with BasicUsage style.");
     } 
 #if defined(ESP32) || defined(ESP8266)
     else if (_displayType == TFT_DISPLAY && tftDisplay != nullptr) {
@@ -875,68 +870,112 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
     if ((_displayType == OLED_SSD1306 || _displayType == OLED_SH1106) && oledDisplay != nullptr) {
         oledDisplay->clearDisplay();
         
-        if (_animations[weatherCondition].frameCount > 0) {
-            const uint8_t* frameData = _animations[weatherCondition].frames[0];
-            int16_t width = SCREEN_WIDTH;
-            int16_t height = SCREEN_HEIGHT;
-            int16_t x = 0;
-            int16_t y = 0;
-            
-            switch (_transitionDirection) {
-                case TRANSITION_RIGHT_TO_LEFT:
-                    x = width * (1.0f - progress);
-                    break;
-                case TRANSITION_LEFT_TO_RIGHT:
-                    x = -width * (1.0f - progress);
-                    break;
-                case TRANSITION_TOP_TO_BOTTOM:
-                    y = -height * (1.0f - progress);
-                    break;
-                case TRANSITION_BOTTOM_TO_TOP:
-                    y = height * (1.0f - progress);
-                    break;
-                case TRANSITION_FADE:
-                    // Draw the bitmap - with a fade effect
-                    for (int yPos = 0; yPos < SCREEN_HEIGHT; yPos++) {
-                        for (int xPos = 0; xPos < SCREEN_WIDTH; xPos += 8) {
-                            uint8_t byte = frameData[yPos * (SCREEN_WIDTH / 8) + (xPos / 8)];
-                            for (int bit = 0; bit < 8; bit++) {
-                                // Apply fade effect - only draw some pixels based on progress
-                                if (byte & (1 << bit)) {
-                                    // Decide whether to draw this pixel based on progress and position
-                                    if (random(100) < progress * 100) {
-                                        oledDisplay->drawPixel(xPos + (7 - bit), yPos, SSD1306_WHITE);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    break;
-            }
-            
-            // For non-fade transitions, draw the bitmap at the calculated position
-            if (_transitionDirection != TRANSITION_FADE) {
-                // Draw bitmap with offset for transitions
-                for (int yPos = 0; yPos < SCREEN_HEIGHT; yPos++) {
-                    for (int xPos = 0; xPos < SCREEN_WIDTH; xPos += 8) {
-                        uint8_t byte = frameData[yPos * (SCREEN_WIDTH / 8) + (xPos / 8)];
-                        for (int bit = 0; bit < 8; bit++) {
-                            if (byte & (1 << bit)) {
-                                int16_t pixelX = xPos + (7 - bit) + x;
-                                int16_t pixelY = yPos + y;
-                                
-                                // Only draw if pixel is within display bounds
-                                if (pixelX >= 0 && pixelX < SCREEN_WIDTH && 
-                                    pixelY >= 0 && pixelY < SCREEN_HEIGHT) {
-                                    oledDisplay->drawPixel(pixelX, pixelY, SSD1306_WHITE);
-                                }
-                            }
-                        }
-                    }
+        // Draw header with weather type name
+        oledDisplay->setTextSize(1);
+        oledDisplay->setTextColor(SSD1306_WHITE);
+        oledDisplay->setCursor(0, 0);
+        oledDisplay->println("Weather:");
+        oledDisplay->setTextSize(2);
+        oledDisplay->setCursor(0, 12);
+        oledDisplay->println(getWeatherText(weatherCondition));
+        
+        // Determine transition effect based on transition direction
+        switch (_transitionDirection) {
+            case TRANSITION_FADE:
+                // For fade transitions, we implement a pixel-by-pixel fade
+                if (random(100) < progress * 100) {
+                    // Draw the weather icon with random pixels based on progress
+                    drawStaticWeatherIcon(weatherCondition);
                 }
+                break;
+                
+            case TRANSITION_RIGHT_TO_LEFT:
+            case TRANSITION_LEFT_TO_RIGHT:
+            case TRANSITION_TOP_TO_BOTTOM:
+            case TRANSITION_BOTTOM_TO_TOP: {
+                // For directional transitions, calculate offsets
+                int16_t x = 0;
+                int16_t y = 0;
+                
+                switch (_transitionDirection) {
+                    case TRANSITION_RIGHT_TO_LEFT:
+                        x = SCREEN_WIDTH * (1.0f - progress);
+                        break;
+                    case TRANSITION_LEFT_TO_RIGHT:
+                        x = -SCREEN_WIDTH * (1.0f - progress);
+                        break;
+                    case TRANSITION_TOP_TO_BOTTOM:
+                        y = -SCREEN_HEIGHT * (1.0f - progress);
+                        break;
+                    case TRANSITION_BOTTOM_TO_TOP:
+                        y = SCREEN_HEIGHT * (1.0f - progress);
+                        break;
+                }
+                
+                // Save current cursor position
+                int16_t curX = oledDisplay->getCursorX();
+                int16_t curY = oledDisplay->getCursorY();
+                
+                // Prepare for offscreen drawing
+                oledDisplay->setCursor(curX + x, curY + y);
+                
+                // Draw the icon offset by the transition amount
+                // We'll need to manually offset all drawing commands
+                
+                // Save and restore cursor after drawing
+                oledDisplay->setCursor(curX, curY);
+                
+                // Draw the icon with proper offset
+                // (This is simplified - in practice, you'd need to offset all drawing commands)
+                switch (weatherCondition) {
+                    case WEATHER_CLEAR:
+                        oledDisplay->fillCircle(96 + x, 32 + y, 16, SSD1306_WHITE);
+                        break;
+                    case WEATHER_CLOUDY:
+                        oledDisplay->fillRoundRect(86 + x, 34 + y, 36, 18, 8, SSD1306_WHITE);
+                        oledDisplay->fillRoundRect(78 + x, 24 + y, 28, 20, 8, SSD1306_WHITE);
+                        break;
+                    case WEATHER_RAIN:
+                        oledDisplay->fillRoundRect(86 + x, 24 + y, 36, 16, 8, SSD1306_WHITE);
+                        for (int i = 0; i < 6; i++) {
+                            oledDisplay->drawLine(86 + i*7 + x, 42 + y, 89 + i*7 + x, 52 + y, SSD1306_WHITE);
+                        }
+                        break;
+                    case WEATHER_SNOW:
+                        oledDisplay->fillRoundRect(86 + x, 24 + y, 36, 16, 8, SSD1306_WHITE);
+                        for (int i = 0; i < 6; i++) {
+                            oledDisplay->drawCircle(89 + i*7 + x, 48 + y, 2, SSD1306_WHITE);
+                        }
+                        break;
+                    case WEATHER_STORM:
+                        oledDisplay->fillRoundRect(86 + x, 24 + y, 36, 16, 8, SSD1306_WHITE);
+                        oledDisplay->fillTriangle(100 + x, 42 + y, 90 + x, 52 + y, 95 + x, 52 + y, SSD1306_WHITE);
+                        oledDisplay->fillTriangle(95 + x, 52 + y, 105 + x, 52 + y, 98 + x, 62 + y, SSD1306_WHITE);
+                        break;
+                }
+                break;
             }
-        } else {
-            displayTextFallback(weatherCondition);
+        }
+        
+        // Add temperature data at the bottom if available
+        if (_hasTemperatureData) {
+            oledDisplay->setTextSize(1);
+            oledDisplay->setCursor(0, 45);
+            
+            // Show indoor and outdoor temps
+            oledDisplay->print("In:");
+            oledDisplay->print(_indoorTemp, 1);
+            oledDisplay->print("C  Out:");
+            oledDisplay->print(_outdoorTemp, 1);
+            oledDisplay->print("C");
+            
+            // Show forecast min/max on last line
+            oledDisplay->setCursor(0, 56);
+            oledDisplay->print("Min:");
+            oledDisplay->print(_minForecastTemp, 1);
+            oledDisplay->print("C Max:");
+            oledDisplay->print(_maxForecastTemp, 1);
+            oledDisplay->print("C");
         }
         
         oledDisplay->display();
@@ -1002,28 +1041,32 @@ void WeatherAnimations::displayTransitionFrame(uint8_t weatherCondition, float p
             // Draw a simple weather icon
             switch (weatherCondition) {
                 case WEATHER_CLEAR:
-                    tftDisplay->fillCircle(120 + x, 100 + y, 30, TFT_YELLOW);
+                    tftDisplay->fillCircle(120 + x, 160, 40, TFT_YELLOW);
                     break;
                 case WEATHER_CLOUDY:
-                    tftDisplay->fillCircle(100 + x, 100 + y, 20, TFT_LIGHTGREY);
-                    tftDisplay->fillCircle(130 + x, 100 + y, 25, TFT_LIGHTGREY);
+                    tftDisplay->fillRoundRect(80, 140, 100, 40, 20, TFT_WHITE);
                     break;
                 case WEATHER_RAIN:
-                    tftDisplay->fillCircle(120 + x, 80 + y, 25, TFT_LIGHTGREY);
-                    for (int i = 0; i < 5; i++) {
-                        tftDisplay->drawLine(100 + i*10 + x, 120 + y, 105 + i*10 + x, 140 + y, TFT_BLUE);
+                    tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_LIGHTGREY);
+                    for (int i = 0; i < 10; i++) {
+                        tftDisplay->drawLine(90 + i*10, 170, 90 + i*10 + 5, 190, TFT_BLUE);
                     }
                     break;
                 case WEATHER_SNOW:
-                    tftDisplay->fillCircle(120 + x, 80 + y, 25, TFT_LIGHTGREY);
-                    for (int i = 0; i < 5; i++) {
-                        tftDisplay->fillCircle(100 + i*10 + x, 130 + y, 3, TFT_WHITE);
+                    tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_LIGHTGREY);
+                    for (int i = 0; i < 10; i++) {
+                        tftDisplay->drawPixel(90 + i*10, 180, TFT_WHITE);
+                        tftDisplay->drawPixel(90 + i*10 + 1, 180, TFT_WHITE);
+                        tftDisplay->drawPixel(90 + i*10, 180 + 1, TFT_WHITE);
+                        tftDisplay->drawPixel(90 + i*10 + 1, 180 + 1, TFT_WHITE);
                     }
                     break;
                 case WEATHER_STORM:
-                    tftDisplay->fillCircle(120 + x, 80 + y, 25, TFT_DARKGREY);
-                    tftDisplay->fillTriangle(120 + x, 110 + y, 110 + x, 140 + y, 130 + x, 140 + y, TFT_YELLOW);
+                    tftDisplay->fillRoundRect(80, 120, 100, 40, 20, TFT_DARKGREY);
+                    tftDisplay->fillTriangle(120, 170, 130, 200, 110, 190, TFT_YELLOW);
                     break;
+                default:
+                    tftDisplay->println("Unknown");
             }
         }
     } 
@@ -1351,6 +1394,112 @@ void WeatherAnimations::renderTFTAnimation(uint8_t weatherCondition) {
     } else {
         // Fallback to text display if no animation frames are available
         displayTextFallback(weatherCondition);
+    }
+}
+
+// New helper function to draw static weather icons in BasicUsage style
+void WeatherAnimations::drawStaticWeatherIcon(uint8_t weatherType) {
+    switch (weatherType) {
+        case WEATHER_CLEAR:
+            // Draw sun
+            oledDisplay->fillCircle(96, 32, 16, SSD1306_WHITE);
+            break;
+        case WEATHER_CLOUDY:
+            // Draw cloud
+            oledDisplay->fillRoundRect(86, 34, 36, 18, 8, SSD1306_WHITE);
+            oledDisplay->fillRoundRect(78, 24, 28, 20, 8, SSD1306_WHITE);
+            break;
+        case WEATHER_RAIN:
+            // Draw cloud with rain
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            for (int i = 0; i < 6; i++) {
+                oledDisplay->drawLine(86 + i*7, 42, 89 + i*7, 52, SSD1306_WHITE);
+            }
+            break;
+        case WEATHER_SNOW:
+            // Draw cloud with snow
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            for (int i = 0; i < 6; i++) {
+                oledDisplay->drawCircle(89 + i*7, 48, 2, SSD1306_WHITE);
+            }
+            break;
+        case WEATHER_STORM:
+            // Draw cloud with lightning
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            oledDisplay->fillTriangle(100, 42, 90, 52, 95, 52, SSD1306_WHITE);
+            oledDisplay->fillTriangle(95, 52, 105, 52, 98, 62, SSD1306_WHITE);
+            break;
+        default:
+            // Unknown weather, draw question mark
+            oledDisplay->setTextSize(3);
+            oledDisplay->setCursor(90, 30);
+            oledDisplay->print("?");
+            break;
+    }
+}
+
+// New helper function to draw animated weather icons in BasicUsage style
+void WeatherAnimations::drawAnimatedWeatherIcon(uint8_t weatherType, uint8_t frame) {
+    // Variables needed for animations
+    int offset = 0;
+    
+    switch (weatherType) {
+        case WEATHER_CLEAR:
+            // Animated sun (rays expand/contract)
+            oledDisplay->fillCircle(96, 32, 12, SSD1306_WHITE);
+            if (frame % 2 == 0) {
+                // Draw longer rays
+                for (int i = 0; i < 8; i++) {
+                    float angle = i * PI / 4.0;
+                    int x1 = 96 + cos(angle) * 14;
+                    int y1 = 32 + sin(angle) * 14;
+                    int x2 = 96 + cos(angle) * 22;
+                    int y2 = 32 + sin(angle) * 22;
+                    oledDisplay->drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+                }
+            } else {
+                // Draw shorter rays
+                for (int i = 0; i < 8; i++) {
+                    float angle = i * PI / 4.0;
+                    int x1 = 96 + cos(angle) * 14;
+                    int y1 = 32 + sin(angle) * 14;
+                    int x2 = 96 + cos(angle) * 18;
+                    int y2 = 32 + sin(angle) * 18;
+                    oledDisplay->drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+                }
+            }
+            break;
+        case WEATHER_CLOUDY:
+            // Animated cloud (moves slightly)
+            offset = (frame % 2 == 0) ? 0 : 2;
+            oledDisplay->fillRoundRect(86 + offset, 34, 36, 18, 8, SSD1306_WHITE);
+            oledDisplay->fillRoundRect(78 + offset, 24, 28, 20, 8, SSD1306_WHITE);
+            break;
+        case WEATHER_RAIN:
+            // Animated rain (drops move)
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            for (int i = 0; i < 6; i++) {
+                int height = ((i + frame) % 3) * 4; // Vary drop heights
+                oledDisplay->drawLine(86 + i*7, 42 + height, 89 + i*7, 52 + height, SSD1306_WHITE);
+            }
+            break;
+        case WEATHER_SNOW:
+            // Animated snow (flakes move)
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            for (int i = 0; i < 6; i++) {
+                int offset_y = ((i + frame) % 3) * 3;
+                int offset_x = ((i + frame) % 2) * 2 - 1;
+                oledDisplay->drawCircle(89 + i*7 + offset_x, 48 + offset_y, 2, SSD1306_WHITE);
+            }
+            break;
+        case WEATHER_STORM:
+            // Animated lightning (flash)
+            oledDisplay->fillRoundRect(86, 24, 36, 16, 8, SSD1306_WHITE);
+            if (frame % 3 != 0) { // Show lightning most frames
+                oledDisplay->fillTriangle(100, 42, 90, 52, 95, 52, SSD1306_WHITE);
+                oledDisplay->fillTriangle(95, 52, 105, 52, 98, 62, SSD1306_WHITE);
+            }
+            break;
     }
 }
 #else

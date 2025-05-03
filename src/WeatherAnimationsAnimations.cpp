@@ -403,7 +403,7 @@ bool initializeAnimationsFromOnline(uint8_t displayType) {
 	return true;
 }
 
-// Fallback function to generate simple animations if online fetch fails
+// New improved fallback animations based on BasicUsage example
 void generateFallbackAnimations() {
 	// Clear memory first
 	for (int i = 0; i < 1024; i++) {
@@ -421,46 +421,23 @@ void generateFallbackAnimations() {
 		stormFrame2[i] = 0;
 	}
 	
-	// ===== CLEAR SKY ANIMATION =====
-	// Draw a simple sun in the middle
-	// Circle for sun
-	for (int y = 20; y < 44; y++) {
-		for (int x = 52; x < 76; x++) {
-			// Calculate distance from center
-			int centerX = 64;
-			int centerY = 32;
-			int dx = x - centerX;
-			int dy = y - centerY;
+	// ===== CLEAR SKY ANIMATION (SUN) =====
+	// Draw a sun with rays that expand/contract
+	// Base circle for sun in both frames
+	for (int y = 0; y < 64; y++) {
+		for (int x = 0; x < 128; x++) {
+			// Calculate distance from center at (96, 32)
+			int dx = x - 96;
+			int dy = y - 32;
 			float distance = sqrt(dx*dx + dy*dy);
 			
-			// Draw if within 10 pixels from center
-			if (distance <= 10) {
+			// Draw circle with radius 12 for frame 1, radius 16 for frame 2
+			if (distance <= 12) {
 				int bytePos = y * 16 + x / 8;
 				int bitPos = 7 - (x % 8);
 				clearSkyFrame1[bytePos] |= (1 << bitPos);
-				clearSkyFrame2[bytePos] |= (1 << bitPos);
 			}
-		}
-	}
-	
-	// Add rays to frame 2 (8 rays)
-	int rays = 8;
-	float angleStep = 2 * PI / rays;
-	for (int ray = 0; ray < rays; ray++) {
-		float angle = ray * angleStep;
-		// Inner point of ray
-		int innerX = 64 + cos(angle) * 12;
-		int innerY = 32 + sin(angle) * 12;
-		// Outer point of ray
-		int outerX = 64 + cos(angle) * 18;
-		int outerY = 32 + sin(angle) * 18;
-		
-		// Draw line from inner to outer
-		for (float t = 0; t <= 1.0; t += 0.1) {
-			int x = innerX + (outerX - innerX) * t;
-			int y = innerY + (outerY - innerY) * t;
-			
-			if (x >= 0 && x < 128 && y >= 0 && y < 64) {
+			if (distance <= 16) {
 				int bytePos = y * 16 + x / 8;
 				int bitPos = 7 - (x % 8);
 				clearSkyFrame2[bytePos] |= (1 << bitPos);
@@ -468,82 +445,257 @@ void generateFallbackAnimations() {
 		}
 	}
 	
-	// ===== CLOUDY ANIMATION =====
-	// Draw cloud shapes
-	// First cloud (left side)
-	drawCloud(30, 25, 35, 15, cloudyFrame1);
-	drawCloud(35, 25, 30, 15, cloudyFrame2);
+	// Add rays to frame 1 (shorter)
+	for (int i = 0; i < 8; i++) {
+		float angle = i * PI / 4.0;
+		int x1 = 96 + cos(angle) * 14;
+		int y1 = 32 + sin(angle) * 14;
+		int x2 = 96 + cos(angle) * 18;
+		int y2 = 32 + sin(angle) * 18;
+		
+		// Draw line from (x1,y1) to (x2,y2)
+		drawLine(x1, y1, x2, y2, clearSkyFrame1);
+	}
 	
-	// Second cloud (right side)
-	drawCloud(85, 30, 40, 15, cloudyFrame1);
-	drawCloud(80, 30, 40, 15, cloudyFrame2);
+	// Add rays to frame 2 (longer)
+	for (int i = 0; i < 8; i++) {
+		float angle = i * PI / 4.0;
+		int x1 = 96 + cos(angle) * 14;
+		int y1 = 32 + sin(angle) * 14;
+		int x2 = 96 + cos(angle) * 22;
+		int y2 = 32 + sin(angle) * 22;
+		
+		// Draw line from (x1,y1) to (x2,y2)
+		drawLine(x1, y1, x2, y2, clearSkyFrame2);
+	}
+	
+	// ===== CLOUDY ANIMATION =====
+	// Draw two cloud shapes with slight movement
+	// First frame - base position
+	drawRoundRect(86, 34, 36, 18, 8, cloudyFrame1);
+	drawRoundRect(78, 24, 28, 20, 8, cloudyFrame1);
+	
+	// Second frame - moved right by 2 pixels
+	drawRoundRect(88, 34, 36, 18, 8, cloudyFrame2);
+	drawRoundRect(80, 24, 28, 20, 8, cloudyFrame2);
 	
 	// ===== RAIN ANIMATION =====
-	// Draw cloud with rain drops
-	drawCloud(64, 20, 50, 15, rainFrame1);
-	drawCloud(64, 20, 50, 15, rainFrame2);
-	drawCloud(64, 20, 50, 15, rainFrame3);
+	// Draw cloud with rain drops at different heights
+	// Base cloud for all frames
+	drawRoundRect(86, 24, 36, 16, 8, rainFrame1);
+	drawRoundRect(86, 24, 36, 16, 8, rainFrame2);
+	drawRoundRect(86, 24, 36, 16, 8, rainFrame3);
 	
-	// Add rain drops to different positions in each frame
-	// Frame 1 - first set of drops
-	for (int i = 0; i < 5; i++) {
-		int dropX = 40 + i * 15;
-		int dropY = 45;
-		drawRainDrop(dropX, dropY, rainFrame1);
+	// Frame 1 - rain at position 1
+	for (int i = 0; i < 6; i++) {
+		drawLine(86 + i*7, 42, 89 + i*7, 52, rainFrame1);
 	}
 	
-	// Frame 2 - drops further down
-	for (int i = 0; i < 5; i++) {
-		int dropX = 40 + i * 15;
-		int dropY = 50;
-		drawRainDrop(dropX, dropY, rainFrame2);
+	// Frame 2 - rain at position 2
+	for (int i = 0; i < 6; i++) {
+		int height = ((i + 1) % 3) * 4; // Vary drop heights
+		drawLine(86 + i*7, 42 + height, 89 + i*7, 52 + height, rainFrame2);
 	}
 	
-	// Frame 3 - drops at bottom
-	for (int i = 0; i < 5; i++) {
-		int dropX = 40 + i * 15;
-		int dropY = 55;
-		drawRainDrop(dropX, dropY, rainFrame3);
+	// Frame 3 - rain at position 3
+	for (int i = 0; i < 6; i++) {
+		int height = ((i + 2) % 3) * 4; // Different variation of heights
+		drawLine(86 + i*7, 42 + height, 89 + i*7, 52 + height, rainFrame3);
 	}
 	
 	// ===== SNOW ANIMATION =====
 	// Draw cloud with snowflakes
-	drawCloud(64, 20, 50, 15, snowFrame1);
-	drawCloud(64, 20, 50, 15, snowFrame2);
-	drawCloud(64, 20, 50, 15, snowFrame3);
+	// Base cloud for all frames
+	drawRoundRect(86, 24, 36, 16, 8, snowFrame1);
+	drawRoundRect(86, 24, 36, 16, 8, snowFrame2);
+	drawRoundRect(86, 24, 36, 16, 8, snowFrame3);
 	
-	// Add snowflakes to different positions in each frame
-	// Frame 1 - first set of flakes
-	for (int i = 0; i < 5; i++) {
-		int flakeX = 40 + i * 15;
-		int flakeY = 45;
-		drawSnowflake(flakeX, flakeY, snowFrame1);
+	// Frame 1 - snowflakes at position 1
+	for (int i = 0; i < 6; i++) {
+		drawCircle(89 + i*7, 48, 2, snowFrame1);
 	}
 	
-	// Frame 2 - flakes in different position
-	for (int i = 0; i < 5; i++) {
-		int flakeX = 35 + i * 15;
-		int flakeY = 50;
-		drawSnowflake(flakeX, flakeY, snowFrame2);
+	// Frame 2 - snowflakes with x and y offsets
+	for (int i = 0; i < 6; i++) {
+		int offset_y = ((i + 1) % 3) * 3;
+		int offset_x = ((i + 1) % 2) * 2 - 1;
+		drawCircle(89 + i*7 + offset_x, 48 + offset_y, 2, snowFrame2);
 	}
 	
-	// Frame 3 - flakes at bottom
-	for (int i = 0; i < 5; i++) {
-		int flakeX = 40 + i * 15;
-		int flakeY = 55;
-		drawSnowflake(flakeX, flakeY, snowFrame3);
+	// Frame 3 - snowflakes with different offsets
+	for (int i = 0; i < 6; i++) {
+		int offset_y = ((i + 2) % 3) * 3;
+		int offset_x = ((i + 0) % 2) * 2 - 1;
+		drawCircle(89 + i*7 + offset_x, 48 + offset_y, 2, snowFrame3);
 	}
 	
 	// ===== STORM ANIMATION =====
-	// Draw dark cloud
-	drawCloud(64, 20, 60, 20, stormFrame1);
-	drawCloud(64, 20, 60, 20, stormFrame2);
+	// Draw cloud with lightning that flashes
+	// Base cloud for both frames
+	drawRoundRect(86, 24, 36, 16, 8, stormFrame1);
+	drawRoundRect(86, 24, 36, 16, 8, stormFrame2);
 	
-	// Add lightning bolt in different positions
-	drawLightning(55, 40, stormFrame1);
-	drawLightning(75, 38, stormFrame2);
+	// Frame 1 - lightning bolt
+	drawTriangle(100, 42, 90, 52, 95, 52, stormFrame1);
+	drawTriangle(95, 52, 105, 52, 98, 62, stormFrame1);
+	
+	// Frame 2 - no lightning (flash effect)
+	// Only the cloud is visible
 }
 
+// Helper function to draw a line in the bitmap
+void drawLine(int x0, int y0, int x1, int y1, uint8_t* buffer) {
+	int dx = abs(x1 - x0);
+	int dy = abs(y1 - y0);
+	int sx = (x0 < x1) ? 1 : -1;
+	int sy = (y0 < y1) ? 1 : -1;
+	int err = dx - dy;
+	
+	while (true) {
+		if (x0 >= 0 && x0 < 128 && y0 >= 0 && y0 < 64) {
+			int bytePos = y0 * 16 + x0 / 8;
+			int bitPos = 7 - (x0 % 8);
+			buffer[bytePos] |= (1 << bitPos);
+		}
+		
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * err;
+		if (e2 > -dy) {
+			err -= dy;
+			x0 += sx;
+		}
+		if (e2 < dx) {
+			err += dx;
+			y0 += sy;
+		}
+	}
+}
+
+// Helper function to draw a circle in the bitmap
+void drawCircle(int x0, int y0, int radius, uint8_t* buffer) {
+	int x = radius;
+	int y = 0;
+	int err = 0;
+	
+	while (x >= y) {
+		// Draw 8 octants
+		setPixel(x0 + x, y0 + y, buffer);
+		setPixel(x0 + y, y0 + x, buffer);
+		setPixel(x0 - y, y0 + x, buffer);
+		setPixel(x0 - x, y0 + y, buffer);
+		setPixel(x0 - x, y0 - y, buffer);
+		setPixel(x0 - y, y0 - x, buffer);
+		setPixel(x0 + y, y0 - x, buffer);
+		setPixel(x0 + x, y0 - y, buffer);
+		
+		if (err <= 0) {
+			y += 1;
+			err += 2*y + 1;
+		}
+		if (err > 0) {
+			x -= 1;
+			err -= 2*x + 1;
+		}
+	}
+}
+
+// Helper function to draw a filled circle in the bitmap
+void fillCircle(int x0, int y0, int radius, uint8_t* buffer) {
+	// Draw horizontal lines between each pair of points on the circle
+	for (int y = -radius; y <= radius; y++) {
+		for (int x = -radius; x <= radius; x++) {
+			if (x*x + y*y <= radius*radius) {
+				setPixel(x0 + x, y0 + y, buffer);
+			}
+		}
+	}
+}
+
+// Helper function to draw a rounded rectangle in the bitmap
+void drawRoundRect(int x, int y, int width, int height, int radius, uint8_t* buffer) {
+	// Draw the main rectangle body (filled)
+	for (int j = y; j < y + height; j++) {
+		for (int i = x; i < x + width; i++) {
+			setPixel(i, j, buffer);
+		}
+	}
+}
+
+// Helper function to draw a filled triangle in the bitmap
+void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer) {
+	// Sort vertices by y-coordinate (y0 <= y1 <= y2)
+	if (y0 > y1) {
+		std::swap(y0, y1);
+		std::swap(x0, x1);
+	}
+	if (y1 > y2) {
+		std::swap(y1, y2);
+		std::swap(x1, x2);
+	}
+	if (y0 > y1) {
+		std::swap(y0, y1);
+		std::swap(x0, x1);
+	}
+	
+	// Special case for a flat bottom triangle
+	if (y0 == y1) {
+		fillFlatBottomTriangle(x0, y0, x1, y1, x2, y2, buffer);
+	}
+	// Special case for a flat top triangle
+	else if (y1 == y2) {
+		fillFlatTopTriangle(x0, y0, x1, y1, x2, y2, buffer);
+	}
+	// General case: split into flat bottom and flat top triangles
+	else {
+		// Calculate the new vertex at the split point
+		int x3 = x0 + ((y1 - y0) * (x2 - x0)) / (y2 - y0);
+		int y3 = y1;
+		
+		fillFlatBottomTriangle(x0, y0, x1, y1, x3, y3, buffer);
+		fillFlatTopTriangle(x1, y1, x3, y3, x2, y2, buffer);
+	}
+}
+
+// Helper function to fill a flat-bottom triangle
+void fillFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer) {
+	float invslope1 = (float)(x1 - x0) / (y1 - y0);
+	float invslope2 = (float)(x2 - x0) / (y2 - y0);
+	
+	float curx1 = x0;
+	float curx2 = x0;
+	
+	for (int scanlineY = y0; scanlineY <= y1; scanlineY++) {
+		drawLine((int)curx1, scanlineY, (int)curx2, scanlineY, buffer);
+		curx1 += invslope1;
+		curx2 += invslope2;
+	}
+}
+
+// Helper function to fill a flat-top triangle
+void fillFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer) {
+	float invslope1 = (float)(x2 - x0) / (y2 - y0);
+	float invslope2 = (float)(x2 - x1) / (y2 - y1);
+	
+	float curx1 = x2;
+	float curx2 = x2;
+	
+	for (int scanlineY = y2; scanlineY >= y0; scanlineY--) {
+		drawLine((int)curx1, scanlineY, (int)curx2, scanlineY, buffer);
+		curx1 -= invslope1;
+		curx2 -= invslope2;
+	}
+}
+
+// Helper function to set a single pixel in the bitmap
+void setPixel(int x, int y, uint8_t* buffer) {
+	if (x >= 0 && x < 128 && y >= 0 && y < 64) {
+		int bytePos = y * 16 + x / 8;
+		int bitPos = 7 - (x % 8);
+		buffer[bytePos] |= (1 << bitPos);
+	}
+}
+
+// Original helper functions (keeping for compatibility)
 // Helper function to draw a cloud shape
 void drawCloud(int centerX, int centerY, int width, int height, uint8_t* buffer) {
 	// Draw a rounded rectangle for the cloud

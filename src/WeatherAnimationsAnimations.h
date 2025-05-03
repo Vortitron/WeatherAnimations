@@ -47,10 +47,20 @@ bool fetchAnimationFrames(const char* baseURL, uint8_t** frames, int frameCount,
 bool initializeAnimationsFromOnline(uint8_t displayType);
 void generateFallbackAnimations();
 
-// Helper functions for drawing fallback animations
+// Original helper functions for drawing fallback animations
 void drawCloud(int centerX, int centerY, int width, int height, uint8_t* buffer);
 void drawRainDrop(int x, int y, uint8_t* buffer);
 void drawSnowflake(int x, int y, uint8_t* buffer);
 void drawLightning(int x, int y, uint8_t* buffer);
+
+// New helper functions for improved BasicUsage style drawing
+void drawLine(int x0, int y0, int x1, int y1, uint8_t* buffer);
+void drawCircle(int x0, int y0, int radius, uint8_t* buffer);
+void fillCircle(int x0, int y0, int radius, uint8_t* buffer);
+void drawRoundRect(int x, int y, int width, int height, int radius, uint8_t* buffer);
+void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer);
+void fillFlatBottomTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer);
+void fillFlatTopTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8_t* buffer);
+void setPixel(int x, int y, uint8_t* buffer);
 
 #endif // WEATHER_ANIMATIONS_ANIMATIONS_H 

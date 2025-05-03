@@ -185,6 +185,10 @@ private:
     void displayTextFallback(uint8_t weatherCondition);
     const char* getWeatherText(uint8_t weatherCondition);
     
+    // New helper functions for BasicUsage style drawing
+    void drawStaticWeatherIcon(uint8_t weatherType);
+    void drawAnimatedWeatherIcon(uint8_t weatherType, uint8_t frame);
+    
     // Set animation based on Home Assistant weather condition
     bool setAnimationFromHACondition(const char* condition, bool isDaytime);
     
