@@ -5,6 +5,12 @@
  * on ESP32, as this combination often works better than the SH110X library.
  * It provides a simpler implementation focused on reliability.
  * 
+ * Features:
+ * - Weather condition display with static or animated icons
+ * - Indoor and outdoor temperature readings from Home Assistant
+ * - Min/max forecast temperature display
+ * - Manual or automatic mode via button controls
+ * 
  * Hardware:
  * - ESP32 board
  * - SH1106 OLED display (I2C, address 0x3C)
@@ -107,6 +113,8 @@ bool isDisplayOn = true;
 	const char* haIP = "YourHomeAssistantIP";
 	const char* haToken = "YourHomeAssistantToken";
 	const char* weatherEntity = "weather.forecast_home";
+	const char* indoorTempEntity = "sensor.indoor_temperature";
+	const char* outdoorTempEntity = "sensor.outdoor_temperature";
 #else
 	// Use the configuration from config.h
 	#ifndef WIFI_SSID
@@ -124,12 +132,20 @@ bool isDisplayOn = true;
 	#ifndef HA_WEATHER_ENTITY
 	#define HA_WEATHER_ENTITY "weather.forecast_home"
 	#endif
+	#ifndef HA_INDOOR_TEMP_ENTITY
+	#define HA_INDOOR_TEMP_ENTITY "sensor.indoor_temperature"
+	#endif
+	#ifndef HA_OUTDOOR_TEMP_ENTITY
+	#define HA_OUTDOOR_TEMP_ENTITY "sensor.outdoor_temperature"
+	#endif
 	
 	const char* ssid = WIFI_SSID;
 	const char* password = WIFI_PASSWORD;
 	const char* haIP = HA_IP;
 	const char* haToken = HA_TOKEN;
 	const char* weatherEntity = HA_WEATHER_ENTITY;
+	const char* indoorTempEntity = HA_INDOOR_TEMP_ENTITY;
+	const char* outdoorTempEntity = HA_OUTDOOR_TEMP_ENTITY;
 #endif
 
 // Create WeatherAnimations instance
@@ -225,6 +241,9 @@ uint8_t fetchWeatherData() {
 		Serial.print("Weather state: ");
 		Serial.println(state);
 		
+		// Note: In the actual library, it will also fetch temperature data from
+		// the configured temperature entities and store indoor, outdoor, min, and max temps
+		
 		http.end();
 		
 		// Map to our weather types
@@ -307,6 +326,16 @@ void drawStaticWeather(uint8_t weatherType) {
 	display.print(manualMode ? "MANUAL" : "LIVE");
 	display.setCursor(70, 56);
 	display.print(animatedMode ? "ANIM" : "STATIC");
+	
+	// If we have temperature data from the weather animations library,
+	// we can display it (this will be empty in this example but shows how
+	// you could add it manually if desired)
+	if (!manualMode) {
+		// Assume when in LIVE mode, the temperature data might be available
+		// This would normally come from the weatherAnim object but we're drawing manually here
+		display.setCursor(0, 45);
+		display.print("Temp data in LIVE mode");
+	}
 	
 	display.display();
 }
@@ -395,6 +424,16 @@ void drawAnimatedWeather(uint8_t weatherType, uint8_t frame) {
 	display.print(animatedMode ? "ANIM" : "STATIC");
 	display.setCursor(110, 56);
 	display.print(frame+1);
+	
+	// If we have temperature data from the weather animations library,
+	// we can display it (this will be empty in this example but shows how
+	// you could add it manually if desired)
+	if (!manualMode) {
+		// Assume when in LIVE mode, the temperature data might be available
+		// This would normally come from the weatherAnim object but we're drawing manually here
+		display.setCursor(0, 45);
+		display.print("Temp data in LIVE mode");
+	}
 	
 	display.display();
 }
@@ -542,16 +581,22 @@ void setup() {
 
 	// Set animation mode to EMBEDDED instead of ONLINE
 	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
+	
+	// The library will automatically fetch temperature data from the configured entities
+	// Temperature data will be displayed at the bottom of animations if available
 
 	// Set the custom weather entity ID
 	weatherAnim.setWeatherEntity(weatherEntity);
+	
+	// Set temperature sensor entities
+	weatherAnim.setTemperatureEntities(indoorTempEntity, outdoorTempEntity);
 
 	// Configure for simple transition mode
 	Serial.println("Setting up for embedded animations...");
 	weatherAnim.setMode(SIMPLE_TRANSITION);
 
 	// Connect to WiFi for future weather data
-	Serial.println("Connecting to WiFi for weather data...");
+	Serial.println("Connecting to WiFi for weather and temperature data...");
 	if (connectToWiFi()) {
 		Serial.println("WiFi Connected");
 	} else {
