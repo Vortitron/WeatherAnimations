@@ -102,6 +102,9 @@ public:
     // Returns true when animation is complete
     bool runTransition(uint8_t weatherCondition, uint8_t direction, uint16_t duration = 1000);
     
+    // Add a public method to check display status
+    bool displayInitFailed() const;
+    
 private:
     // Wi-Fi and Home Assistant credentials
     const char* _ssid;
@@ -197,6 +200,8 @@ private:
     
     // Parse GIF data to extract frames
     bool parseGifFrames(uint8_t weatherCondition);
+    
+    bool _displayInitFailed;
 };
 }
 

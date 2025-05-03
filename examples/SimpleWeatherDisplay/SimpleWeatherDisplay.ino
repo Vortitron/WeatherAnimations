@@ -157,6 +157,13 @@ void setup() {
 	weatherAnim.begin(OLED_SSD1306, OLED_ADDR, true);
 	#endif
 	
+	// Check for display initialisation failure
+	if (weatherAnim.displayInitFailed()) {
+		Serial.println("ERROR: Display failed to initialise! Check wiring, power, and I2C address.");
+		Serial.println("Weather display will be disabled, but the program will continue running.");
+		return;
+	}
+	
 	// Set animation mode to embedded (not online)
 	weatherAnim.setAnimationMode(ANIMATION_EMBEDDED);
 	

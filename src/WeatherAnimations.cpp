@@ -44,7 +44,7 @@ WeatherAnimations::WeatherAnimations(const char* ssid, const char* password, con
       _indoorTempEntity("sensor.t_h_sensor_temperature"), _outdoorTempEntity("sensor.sam_outside_temperature"),
       _indoorTemp(0), _outdoorTemp(0), _minForecastTemp(0), _maxForecastTemp(0), _hasTemperatureData(false),
       _lastFetchTime(0), _fetchCooldown(300000), _isTransitioning(false),
-      _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_ONLINE)
+      _lastFrameTime(0), _currentFrame(0), _animationMode(ANIMATION_ONLINE), _displayInitFailed(false)
 {
     // Zero-initialize animation structure
     for (int i = 0; i < 5; i++) {
@@ -746,6 +746,7 @@ bool WeatherAnimations::parseGifFrames(uint8_t weatherCondition) {
 }
 
 void WeatherAnimations::initDisplay() {
+    _displayInitFailed = false;
     if (_displayType == OLED_SSD1306 || _displayType == OLED_SH1106) {
         // Use SSD1306 library for both SSD1306 and SH1106 displays (compatibility mode)
         oledDisplay = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -754,9 +755,10 @@ void WeatherAnimations::initDisplay() {
             oledDisplay->display();
             WA_SERIAL_PRINTLN("SSD1306 display initialized.");
         } else {
-            WA_SERIAL_PRINTLN("SSD1306 display initialization failed.");
+            WA_SERIAL_PRINTLN("SSD1306 display initialization failed. Library will continue without display.");
             delete oledDisplay;
             oledDisplay = nullptr;
+            _displayInitFailed = true;
         }
     } 
 #if defined(ESP32) || defined(ESP8266)
@@ -1512,6 +1514,11 @@ void WeatherAnimations::renderTFTAnimation(uint8_t weatherCondition) {
 void WeatherAnimations::setTemperatureEntities(const char* indoorTempEntity, const char* outdoorTempEntity) {
     _indoorTempEntity = indoorTempEntity;
     _outdoorTempEntity = outdoorTempEntity;
+}
+
+// Add a public method to check display status
+bool WeatherAnimations::displayInitFailed() const {
+    return _displayInitFailed;
 }
 
  
